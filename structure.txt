@@ -1,0 +1,73 @@
+.
+├── config.py
+├── evaluate.py
+├── .gitignore
+├── logs
+│   ├── fixed_training_20251026_164044
+│   │   ├── episode_log.csv
+│   │   ├── reward_progress.png
+│   │   └── training_metrics.png
+│   ├── fixed_training_20251026_211325
+│   ├── fixed_training_20251026_212130
+│   └── fixed_training_20251026_213139
+│       ├── episode_log.csv
+│       ├── reward_progress.png
+│       └── training_metrics.png
+├── monitor_training.py
+├── README.md
+├── requirements.txt
+├── src
+│   ├── agent.py
+│   ├── env_wrapper.py
+│   ├── __init__.py
+│   ├── model.py
+│   ├── reward_shaping.py
+│   └── utils.py
+├── structure.txt
+├── tests
+│   ├── diagnose_model.py
+│   ├── diagnose_training.py
+│   ├── investigate_line_clearing.py
+│   ├── .pytest_cache
+│   │   ├── CACHEDIR.TAG
+│   │   ├── .gitignore
+│   │   ├── README.md
+│   │   └── v
+│   ├── README.md
+│   ├── test_actions_simple.py
+│   ├── test_environment_rendering.py
+│   ├── test_reward_helpers.py
+│   ├── tetris_reward_shaping.md
+│   ├── verify_imports.py
+│   └── verify_training_actions.py
+├── train.py
+└── .venv
+    ├── bin
+    │   ├── activate
+    │   ├── activate.csh
+    │   ├── activate.fish
+    │   ├── Activate.ps1
+    │   ├── f2py
+    │   ├── fonttools
+    │   ├── isympy
+    │   ├── pip
+    │   ├── pip3
+    │   ├── pip3.12
+    │   ├── pyftmerge
+    │   ├── pyftsubset
+    │   ├── python -> python3
+    │   ├── python3 -> /usr/bin/python3
+    │   ├── python3.12 -> python3
+    │   ├── torchfrtrace
+    │   ├── torchrun
+    │   └── ttx
+    ├── include
+    │   └── python3.12
+    ├── lib
+    │   └── python3.12
+    ├── lib64 -> lib
+    ├── pyvenv.cfg
+    └── share
+        └── man
+
+19 directories, 52 files

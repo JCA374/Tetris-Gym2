@@ -116,7 +116,7 @@ def train(args):
         epsilon_start=args.epsilon_start,
         epsilon_end=args.epsilon_end,
         epsilon_decay=args.epsilon_decay,
-        reward_shaping="balanced", 
+        reward_shaping="none",
         max_episodes=args.episodes
     )
 
@@ -191,6 +191,13 @@ def train(args):
             
             # ✅ ALWAYS APPLY REWARD SHAPING (this is the fix!)
             shaped_reward = shaper_fn(obs, action, raw_reward, done, info)
+            # Safety clamp so training can’t blow up if old code is loaded:
+            import numpy as _np
+            shaped_reward = float(_np.clip(shaped_reward, -100.0, 600.0))
+
+
+
+
 
             # Store experience with shaped reward
             agent.remember(obs, action, shaped_reward, next_obs, done, info, raw_reward)

@@ -45,6 +45,14 @@ LOG_INTERVAL = 10
 SAVE_INTERVAL = 500
 MILESTONE_INTERVAL = 1000
 
+ACTION_NOOP=0; ACTION_LEFT=1; ACTION_RIGHT=2; ACTION_DOWN=3
+ACTION_ROTATE_CW=4; ACTION_ROTATE_CCW=5; ACTION_HARD_DROP=6; ACTION_SWAP=7
+ACTION_MEANINGS = {0:"NOOP",1:"LEFT",2:"RIGHT",3:"DOWN",4:"ROTATE_CW",5:"ROTATE_CCW",6:"HARD_DROP",7:"SWAP"}
+
+def discover_action_meanings(env): 
+    # set/verify the constants above if env exposes meanings
+    return ACTION_MEANINGS
+
 
 def make_env(render_mode="rgb_array", use_complete_vision=True, use_cnn=False):
     """

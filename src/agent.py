@@ -177,20 +177,60 @@ class Agent:
 
         return shaped_reward
 
-    def select_action(self, state, eval_mode=False):
-        """Select action with proper epsilon handling and exploration bias"""
-        if eval_mode or random.random() > self.epsilon:
+    def select_action(self, state, training=None, eval_mode=False):
+        """
+        Epsilon-greedy action selection with exploration biased toward
+        line-clearing behaviors (no NOOP during exploration).
+
+        Args:
+            state: observation
+            training (bool|None): if True -> epsilon-greedy; if False -> greedy;
+                                if None -> fall back to eval_mode/epsilon logic.
+            eval_mode (bool): legacy flag; if True -> greedy
+        """
+        # Decide exploit vs explore
+        # - Force GREEDY if eval_mode=True or training is False
+        # - Else epsilon-greedy (explore with probability epsilon)
+        do_exploit = False
+        if eval_mode or (training is False):
+            do_exploit = True
+        else:
+            # If training==True or training is None, use epsilon-greedy
+            do_exploit = (np.random.rand() > self.epsilon)
+
+        if do_exploit:
+            # Greedy: argmax Q
             with torch.no_grad():
                 state_tensor = self._preprocess_state(state)
                 q_values = self.q_network(state_tensor)
                 return q_values.max(1)[1].item()
+
+        # ------------------------------------------------------------------
+        # Exploration: sample from a NOOP-free distribution:
+        #   LEFT        (1): 17.5%
+        #   RIGHT       (2): 17.5%
+        #   ROTATE_CW   (4): 10%
+        #   ROTATE_CCW  (5): 10%
+        #   DOWN        (3): 15%
+        #   HARD_DROP   (6): 20%
+        #   SWAP        (7): 10%
+        #   NOOP        (0): 0%
+        # ------------------------------------------------------------------
+        r = np.random.rand()
+        if r < 0.175:
+            return 1  # LEFT
+        elif r < 0.350:
+            return 2  # RIGHT
+        elif r < 0.450:
+            return 4  # ROTATE_CW
+        elif r < 0.550:
+            return 5  # ROTATE_CCW
+        elif r < 0.700:
+            return 3  # DOWN
+        elif r < 0.900:
+            return 6  # HARD_DROP
         else:
-            # ✅ FIXED: Bias random exploration toward LEFT/RIGHT moves
-            # This helps discover horizontal movement faster
-            if random.random() < 0.3:  # 30% of random actions
-                return random.choice([0, 1])  # LEFT or RIGHT
-            else:
-                return random.randrange(self.n_actions)
+            return 7  # SWAP
 
     def remember(self, state, action, reward, next_state, done, info=None, original_reward=None):
         """Store experience with shape validation"""
