@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Test RAW gymnasium environment with NO wrappers - sanity check"""
 
-import gymnasium as gym
-import tetris_gymnasium
+from tetris_gymnasium.envs import Tetris
 
 print("="*80)
 print("SANITY CHECK: Raw tetris-gymnasium with NO custom code")
 print("="*80)
 
-# Make base env with ZERO wrappers
-env = gym.make("tetris_gymnasium/Tetris", render_mode=None)
+# Make base env with ZERO wrappers - direct import
+env = Tetris(render_mode=None)
 
 print(f"\nEnvironment: {env}")
 print(f"Action space: {env.action_space}")

@@ -45,9 +45,12 @@ LOG_INTERVAL = 10
 SAVE_INTERVAL = 500
 MILESTONE_INTERVAL = 1000
 
-ACTION_NOOP=0; ACTION_LEFT=1; ACTION_RIGHT=2; ACTION_DOWN=3
-ACTION_ROTATE_CW=4; ACTION_ROTATE_CCW=5; ACTION_HARD_DROP=6; ACTION_SWAP=7
-ACTION_MEANINGS = {0:"NOOP",1:"LEFT",2:"RIGHT",3:"DOWN",4:"ROTATE_CW",5:"ROTATE_CCW",6:"HARD_DROP",7:"SWAP"}
+# FIXED: Correct action mapping for tetris-gymnasium v0.3.0
+# ActionsMapping(move_left=0, move_right=1, move_down=2, rotate_clockwise=3,
+#                rotate_counterclockwise=4, hard_drop=5, swap=6, no_op=7)
+ACTION_LEFT=0; ACTION_RIGHT=1; ACTION_DOWN=2; ACTION_ROTATE_CW=3
+ACTION_ROTATE_CCW=4; ACTION_HARD_DROP=5; ACTION_SWAP=6; ACTION_NOOP=7
+ACTION_MEANINGS = {0:"LEFT",1:"RIGHT",2:"DOWN",3:"ROTATE_CW",4:"ROTATE_CCW",5:"HARD_DROP",6:"SWAP",7:"NOOP"}
 
 def discover_action_meanings(env): 
     # set/verify the constants above if env exposes meanings
