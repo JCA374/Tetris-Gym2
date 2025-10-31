@@ -87,67 +87,129 @@ def make_env(render_mode="rgb_array", use_complete_vision=True, use_cnn=False):
 
 class CompleteVisionWrapper(gym.ObservationWrapper):
     """
-    Wrapper to convert dict observations to 3D array for CNN
-    
-    Extracts board and adds channel dimension for CNN processing
-    Output shape: (20, 10, 1) - height x width x channels
+    Wrapper to convert dict observations to 4-channel array for CNN
+
+    Extracts full game state for better decision making:
+    - Channel 0: Board state (locked pieces)
+    - Channel 1: Active tetromino (falling piece)
+    - Channel 2: Holder (held piece for swap)
+    - Channel 3: Queue (preview of next pieces)
+
+    Output shape: (20, 10, 4) - height x width x channels
     """
-    
+
     def __init__(self, env):
         super().__init__(env)
-        
-        # Define new observation space - 3D with 1 channel
-        # ✅ FIXED: Changed from (20, 10) to (20, 10, 1) for CNN compatibility
+
+        # Define new observation space - 3D with 4 channels
         self.observation_space = gym.spaces.Box(
             low=0,
             high=255,
-            shape=(20, 10, 1),  # ← Added channel dimension!
+            shape=(20, 10, 4),  # 4 channels for full game state
             dtype=np.uint8
         )
-        
-        print("🎯 CompleteVisionWrapper initialized:")
+
+        print("🎯 CompleteVisionWrapper initialized (4-CHANNEL):")
         print(f"   Input space: {env.observation_space}")
         print(f"   Output space: {self.observation_space}")
+        print(f"   Channels: Board | Active Piece | Holder | Queue")
     
     def observation(self, obs_dict):
         """
-        Extract board from observation dict and add channel dimension
-        
+        Extract 4-channel game state from observation dict.
+
+        Tetris Gymnasium raw board structure (24x18):
+        - Rows 0-1:   Top spawn area
+        - Rows 2-19:  Main playable area (18 rows)
+        - Rows 20-23: Bottom wall (4 rows, always filled - NOT playable)
+        - Cols 0-3:   Left wall (4 columns, always filled)
+        - Cols 4-13:  Playable area (10 columns)
+        - Cols 14-17: Right wall (4 columns, always filled)
+
         Args:
-            obs_dict: Dictionary with 'board' and other keys
-            
+            obs_dict: Dictionary with 'board', 'active_tetromino_mask', 'holder', 'queue'
+
         Returns:
-            3D numpy array (20, 10, 1) - board with channel dimension
+            4D numpy array (20, 10, 4) with channels:
+            - Channel 0: Board state (locked pieces)
+            - Channel 1: Active piece (falling tetromino)
+            - Channel 2: Holder (held piece for swap)
+            - Channel 3: Queue (preview of next pieces)
         """
-        if isinstance(obs_dict, dict) and 'board' in obs_dict:
-            board = obs_dict['board']
-            
-            # Extract playable area (20x10)
-            if board.shape == (24, 18):
-                # Standard tetris-gymnasium format with walls
-                # Playable area is in the center
-                playable = board[2:22, 4:14]  # Extract 20x10 playable area
-            elif board.shape == (20, 10):
-                # Already correct size
-                playable = board
-            elif board.shape[0] >= 20 and board.shape[1] >= 10:
-                # Has walls - extract middle 20x10
-                playable = board[:20, :10]
-            else:
-                # Unexpected shape - use as is and hope for the best
-                playable = board
-            
-            # ✅ FIXED: Add channel dimension (20, 10) → (20, 10, 1)
-            playable_3d = np.expand_dims((playable > 0).astype(np.uint8), axis=-1)
-            
-            return playable_3d.astype(np.uint8)
-        else:
-            # If not a dict, assume it's already the board
+        if not isinstance(obs_dict, dict):
+            # Fallback for non-dict observations
             board = np.array(obs_dict)
-            # Add channel dimension if needed
             if len(board.shape) == 2:
-                board = np.expand_dims(board, axis=-1)
+                # Convert single 2D to 4-channel
+                board_binary = (board > 0).astype(np.uint8)
+                return np.stack([board_binary] * 4, axis=-1).astype(np.uint8)
+            elif len(board.shape) == 3 and board.shape[-1] == 1:
+                # Convert (H, W, 1) to (H, W, 4) by repeating
+                return np.repeat(board, 4, axis=-1).astype(np.uint8)
             return board.astype(np.uint8)
+
+        # Initialize 4 channels (20x10 each)
+        channels = []
+
+        # === CHANNEL 0: BOARD (locked pieces) ===
+        board = obs_dict.get('board', np.zeros((24, 18), dtype=np.uint8))
+        if board.shape == (24, 18):
+            board_playable = board[0:20, 4:14]  # Extract rows 0-19, cols 4-13
+        elif board.shape == (20, 10):
+            board_playable = board
+        else:
+            board_playable = self._resize_to_playable(board)
+
+        board_channel = (board_playable > 0).astype(np.uint8)
+        channels.append(board_channel)
+
+        # === CHANNEL 1: ACTIVE TETROMINO (falling piece) ===
+        mask = obs_dict.get('active_tetromino_mask', np.zeros((24, 18), dtype=np.uint8))
+        if mask.shape == (24, 18):
+            mask_playable = mask[0:20, 4:14]  # Same extraction as board
+        elif mask.shape == (20, 10):
+            mask_playable = mask
+        else:
+            mask_playable = self._resize_to_playable(mask)
+
+        mask_channel = (mask_playable > 0).astype(np.uint8)
+        channels.append(mask_channel)
+
+        # === CHANNEL 2: HOLDER (held piece) ===
+        holder = obs_dict.get('holder', np.zeros((4, 4), dtype=np.uint8))
+        holder_channel = np.zeros((20, 10), dtype=np.uint8)
+
+        # Place holder in top-left corner (scaled to 4x4 region)
+        if holder.shape == (4, 4):
+            holder_binary = (holder > 0).astype(np.uint8)
+            holder_channel[0:4, 0:4] = holder_binary
+
+        channels.append(holder_channel)
+
+        # === CHANNEL 3: QUEUE (next pieces preview) ===
+        queue = obs_dict.get('queue', np.zeros((4, 16), dtype=np.uint8))
+        queue_channel = np.zeros((20, 10), dtype=np.uint8)
+
+        # Place queue preview in top-right corner (4 pieces × 4 cells each)
+        if queue.shape == (4, 16):
+            queue_binary = (queue > 0).astype(np.uint8)
+            # Take first 10 columns (2.5 pieces) and place in top-right
+            queue_preview = queue_binary[:, :10]
+            queue_channel[0:4, 0:10] = queue_preview
+
+        channels.append(queue_channel)
+
+        # Stack channels: (20, 10, 4)
+        observation_4ch = np.stack(channels, axis=-1).astype(np.uint8)
+
+        return observation_4ch
+
+    def _resize_to_playable(self, array):
+        """Helper to resize any array to (20, 10)"""
+        target = np.zeros((20, 10), dtype=np.uint8)
+        h, w = min(20, array.shape[0]), min(10, array.shape[1])
+        target[:h, :w] = array[:h, :w]
+        return target
 
 
 def test_environment():

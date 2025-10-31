@@ -2,9 +2,18 @@
 """Deep investigation: Why aren't lines being cleared?"""
 
 import sys
-sys.path.insert(0, '/home/claude')
+from pathlib import Path
 
-from config import make_env
+# Add parent directory to path
+THIS_DIR = Path(__file__).resolve().parent
+PROJ_ROOT = THIS_DIR.parent
+if str(PROJ_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJ_ROOT))
+
+from config import (
+    make_env,
+    ACTION_NOOP, ACTION_LEFT, ACTION_RIGHT, ACTION_HARD_DROP
+)
 import numpy as np
 
 def check_if_row_can_be_filled():
@@ -38,9 +47,9 @@ def check_if_row_can_be_filled():
         while not done and step < 200:
             # Use mostly hard drops to fill quickly
             if np.random.random() < 0.8:
-                action = 5  # Hard drop
+                action = ACTION_HARD_DROP
             else:
-                action = np.random.choice([0, 1, 2])  # NOOP, LEFT, RIGHT
+                action = np.random.choice([ACTION_NOOP, ACTION_LEFT, ACTION_RIGHT])
             
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
@@ -98,9 +107,9 @@ def test_piece_placement():
     pieces_before = np.count_nonzero(board_before)
     
     print(f"\n   Before hard drop: {pieces_before} cells filled")
-    
+
     # Hard drop should place the piece
-    obs, reward, term, trunc, info = env.step(5)
+    obs, reward, term, trunc, info = env.step(ACTION_HARD_DROP)
     
     board_after = obs[:, :, 0].copy()
     pieces_after = np.count_nonzero(board_after)
@@ -119,7 +128,7 @@ def test_piece_placement():
         print(f"\n   Testing 5 consecutive placements:")
         for i in range(5):
             before = np.count_nonzero(obs[:, :, 0])
-            obs, reward, term, trunc, info = env.step(5)
+            obs, reward, term, trunc, info = env.step(ACTION_HARD_DROP)
             after = np.count_nonzero(obs[:, :, 0])
             
             print(f"      Drop {i+1}: {before} -> {after} cells (+{after-before})")

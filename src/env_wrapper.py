@@ -20,16 +20,26 @@ class CompleteVisionWrapper(gym.ObservationWrapper):
     
     def observation(self, obs):
         """
-        Convert dictionary observation to board array
+        Convert dictionary observation to board array.
+
+        Tetris Gymnasium raw board structure (24x18):
+        - Rows 0-1:   Top spawn area
+        - Rows 2-19:  Main playable area (18 rows)
+        - Rows 20-23: Bottom wall (4 rows, always filled - NOT playable)
+        - Cols 0-3:   Left wall (4 columns, always filled)
+        - Cols 4-13:  Playable area (10 columns)
+        - Cols 14-17: Right wall (4 columns, always filled)
         """
         if isinstance(obs, dict) and 'board' in obs:
             # Get the board from the observation
             full_board = obs['board']
-            
+
             # Extract the playable area (20x10) from the full board
             if full_board.shape == (24, 18):
-                # Tetris Gymnasium uses 24x18 with padding
-                board = full_board[2:22, 4:14]  # Extract 20x10 playable area
+                # Tetris Gymnasium uses 24x18 with walls
+                # Extract rows 0-19 (spawn + playable area, no bottom walls)
+                # Extract cols 4-13 (playable width, no side walls)
+                board = full_board[0:20, 4:14]  # Extract 20x10 playable area
             elif full_board.shape == (20, 10):
                 board = full_board
             else:

@@ -28,12 +28,18 @@ def extract_board_from_obs(obs):
     Accepts:
       - dict with 'board' (24x18 or 20x10)
       - 2D array (20x10)
-      - 3D array (20x10x1)
+      - 3D array (20x10x1) - single channel
+      - 3D array (20x10x4) - 4-channel (extracts channel 0 = board)
+
+    Note: Tetris Gymnasium raw board (24x18) has:
+      - Rows 0-19:  Spawn + playable area
+      - Rows 20-23: Bottom walls (NOT playable)
+      - Cols 4-13:  Playable width
     """
     if isinstance(obs, dict):
         full = obs.get("board", np.zeros((20, 10)))
         if full.shape == (24, 18):
-            board = full[2:22, 4:14]
+            board = full[0:20, 4:14]  # FIXED: Extract rows 0-19, not 2-21
         elif full.shape[:2] == (20, 10):
             board = full[:20, :10]
         else:
@@ -42,7 +48,9 @@ def extract_board_from_obs(obs):
             w0 = max(0, (w - 10) // 2)
             board = full[h0:h0+20, w0:w0+10]
     elif hasattr(obs, "shape"):
-        if len(obs.shape) == 3 and obs.shape[2] == 1:
+        if len(obs.shape) == 3:
+            # 3D observation - extract channel 0 (board channel)
+            # Works for both (20,10,1) and (20,10,4)
             board = obs[:, :, 0]
         elif len(obs.shape) == 2:
             board = obs
