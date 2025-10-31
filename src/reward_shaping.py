@@ -185,8 +185,9 @@ def overnight_reward_shaping(obs, action, reward, done, info):
     shaped -= 0.06 * bump
     shaped -= 0.10 * wells
 
-    # Bonus: distribution
-    shaped += 4.0 * spread
+    # Bonus: distribution (reduced due to tetris-gymnasium movement limits)
+    # Note: Pieces can only reach columns 2-7, so perfect spread is impossible
+    shaped += 2.0 * spread  # Reduced from 4.0 to 2.0
 
     # Survival bonus (helps early exploration)
     steps = int(info.get("steps", 0))
