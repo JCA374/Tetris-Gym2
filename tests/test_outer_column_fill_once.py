@@ -1,4 +1,5 @@
-# tests/test_outer_column_fill_once.py
+from pathlib import Path
+
 """
 Micro regression: from reset, can we guide the very first piece to touch column 0 or 9?
 This catches hard "stuck-in-middle" bugs quickly.
