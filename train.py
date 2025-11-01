@@ -191,9 +191,8 @@ def train(args):
             
             # ✅ ALWAYS APPLY REWARD SHAPING (this is the fix!)
             shaped_reward = shaper_fn(obs, action, raw_reward, done, info)
-            # Safety clamp so training can’t blow up if old code is loaded:
-            import numpy as _np
-            shaped_reward = float(_np.clip(shaped_reward, -100.0, 600.0))
+            # NO CLAMP - let the gradient flow!
+            # The reward_shaping function has its own clamp that preserves gradient
 
 
 
