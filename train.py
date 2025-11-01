@@ -256,6 +256,20 @@ def train(args):
             print(f"     Max height: {max_height}, Variance: {height_variance:.2f}")
             print(f"     Holes: {holes}, Bumpiness: {bumpiness:.1f}")
 
+            # Log board state to file
+            logger.log_board_state(
+                episode=episode + 1,
+                board=board,
+                reward=episode_reward,
+                steps=episode_steps,
+                lines_cleared=lines_this_episode,
+                heights=heights,
+                holes=holes,
+                bumpiness=bumpiness,
+                max_height=max_height,
+                max_row_fullness=max_row_fullness
+            )
+
 
 
 

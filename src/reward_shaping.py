@@ -179,19 +179,38 @@ def overnight_reward_shaping(obs, action, reward, done, info):
     wells   = calculate_wells(board)                  # 0..~100
     spread  = calculate_horizontal_distribution(board)  # 0..1
 
-    # Penalties (light but consistent)
+    # Penalties - STRENGTHENED to discourage center-stacking
     shaped -= 0.12 * agg_h
     shaped -= 1.30 * holes
-    shaped -= 0.06 * bump
+    shaped -= 1.0 * bump       # INCREASED from 0.06 (17x stronger!)
     shaped -= 0.10 * wells
 
-    # Bonus: distribution (reduced due to tetris-gymnasium movement limits)
-    # Note: Pieces can only reach columns 2-7, so perfect spread is impossible
-    shaped += 2.0 * spread  # Reduced from 4.0 to 2.0
+    # ANTI-CENTER-STACKING REWARDS (STRENGTHENED)
+    # Note: After action mapping fix, ALL columns 0-9 are accessible!
 
-    # Survival bonus (helps early exploration)
+    # 1. Horizontal distribution bonus (variance-based)
+    shaped += 8.0 * spread  # Reward spreading pieces
+
+    # 2. Column usage bonus - reward using more columns
+    heights = get_column_heights(board)
+    columns_used = sum(1 for h in heights if h > 0)
+    shaped += columns_used * 3.0  # +3 per column used (max +30 for all 10)
+
+    # 3. Penalty for unused outer columns (DOUBLED - discourage center-stacking)
+    outer_columns = [0, 1, 2, 7, 8, 9]  # Leftmost and rightmost
+    outer_unused = sum(1 for c in outer_columns if heights[c] == 0)
+    shaped -= outer_unused * 10.0  # INCREASED from 5.0 (max -60)
+
+    # 4. Height concentration penalty - MUCH STRONGER to punish center-stacking
+    # Calculate std dev of heights - high std dev = concentrated stacking
+    if columns_used > 0:
+        heights_arr = np.array(heights, dtype=np.float32)
+        height_std = float(np.std(heights_arr))
+        shaped -= 10.0 * height_std  # INCREASED from 0.5 (20x stronger!)
+
+    # Survival bonus - INCREASED to encourage longer episodes
     steps = int(info.get("steps", 0))
-    shaped += min(steps * 0.02, 3.0)
+    shaped += min(steps * 0.1, 10.0)  # INCREASED from 0.02 and cap from 3.0
 
     # Line clear bonus (simple, monotonic)
     lines = int(info.get("lines_cleared", 0))
@@ -200,12 +219,12 @@ def overnight_reward_shaping(obs, action, reward, done, info):
         if lines == 4:  # modest tetris kicker
             shaped += 120.0
 
-    # Episode end penalty
+    # Episode end penalty - REDUCED to encourage exploration
     if done:
-        shaped -= 30.0
+        shaped -= 10.0  # REDUCED from 30.0
 
-    # Clamp
-    return float(np.clip(shaped, -100.0, 600.0))
+    # Clamp - wider range to accommodate stronger penalties
+    return float(np.clip(shaped, -200.0, 600.0))
 
 
 # Backward-compat aliases so train.py keeps working without edits

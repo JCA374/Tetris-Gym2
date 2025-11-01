@@ -192,6 +192,13 @@ class TrainingLogger:
         self.episode_logs = []
         self.step_logs = []
 
+        # Initialize board state log file
+        self.board_log_path = self.experiment_dir / "board_states.txt"
+        with open(self.board_log_path, 'w') as f:
+            f.write("="*80 + "\n")
+            f.write("FINAL BOARD STATES LOG\n")
+            f.write("="*80 + "\n\n")
+
         print(f"Training logger initialized: {self.experiment_dir}")
 
     def log_episode(self, episode, reward, steps, epsilon, **kwargs):
@@ -216,6 +223,43 @@ class TrainingLogger:
             **kwargs
         }
         self.step_logs.append(log_entry)
+
+    def log_board_state(self, episode, board, reward, steps, lines_cleared, **kwargs):
+        """
+        Log final board state visualization to file
+
+        Args:
+            episode: Episode number
+            board: 2D numpy array (20x10) representing the board
+            reward: Episode reward
+            steps: Number of steps in episode
+            lines_cleared: Number of lines cleared
+            **kwargs: Additional metrics (heights, holes, etc.)
+        """
+        with open(self.board_log_path, 'a') as f:
+            f.write(f"Episode {episode} | Reward: {reward:.1f} | Steps: {steps} | Lines: {lines_cleared}\n")
+
+            # Add extra metrics if provided
+            if 'heights' in kwargs:
+                f.write(f"Column heights: {kwargs['heights']}\n")
+            if 'holes' in kwargs:
+                f.write(f"Holes: {kwargs['holes']}")
+            if 'bumpiness' in kwargs:
+                f.write(f" | Bumpiness: {kwargs['bumpiness']:.1f}")
+            if 'max_height' in kwargs:
+                f.write(f" | Max height: {kwargs['max_height']}")
+            if 'holes' in kwargs or 'bumpiness' in kwargs or 'max_height' in kwargs:
+                f.write("\n")
+
+            # Visual board representation
+            f.write("  " + "0123456789" + "\n")
+
+            for r in range(min(20, board.shape[0])):
+                row_str = "".join("█" if board[r, c] > 0 else "·" for c in range(board.shape[1]))
+                filled = int(np.sum(board[r, :] > 0))
+                f.write(f"{r:2d} {row_str}  ({filled}/10)\n")
+
+            f.write("\n")
 
     def save_logs(self):
         """Save all logs to files"""

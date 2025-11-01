@@ -206,31 +206,36 @@ class Agent:
                 return q_values.max(1)[1].item()
 
         # ------------------------------------------------------------------
-        # Exploration: sample from a NOOP-free distribution:
-        #   LEFT        (1): 17.5%
-        #   RIGHT       (2): 17.5%
-        #   ROTATE_CW   (4): 10%
-        #   ROTATE_CCW  (5): 10%
-        #   DOWN        (3): 15%
-        #   HARD_DROP   (6): 20%
-        #   SWAP        (7): 10%
-        #   NOOP        (0): 0%
+        # Exploration: sample from a distribution biased toward spatial movement
+        # FIXED: Correct action IDs for tetris-gymnasium v0.3.0
+        #   LEFT=0, RIGHT=1, DOWN=2, ROTATE_CW=3, ROTATE_CCW=4,
+        #   HARD_DROP=5, SWAP=6, NOOP=7
+        #
+        # Distribution (higher LEFT to encourage exploring left columns):
+        #   LEFT        (0): 25%   (increased from 17.5%)
+        #   RIGHT       (1): 15%
+        #   DOWN        (2): 10%
+        #   ROTATE_CW   (3): 10%
+        #   ROTATE_CCW  (4): 10%
+        #   HARD_DROP   (5): 20%
+        #   SWAP        (6): 10%
+        #   NOOP        (7): 0%    (disabled during exploration)
         # ------------------------------------------------------------------
         r = np.random.rand()
-        if r < 0.175:
-            return 1  # LEFT
-        elif r < 0.350:
-            return 2  # RIGHT
-        elif r < 0.450:
-            return 4  # ROTATE_CW
-        elif r < 0.550:
-            return 5  # ROTATE_CCW
-        elif r < 0.700:
-            return 3  # DOWN
-        elif r < 0.900:
-            return 6  # HARD_DROP
+        if r < 0.25:
+            return 0  # LEFT (action 0)
+        elif r < 0.40:
+            return 1  # RIGHT (action 1)
+        elif r < 0.50:
+            return 2  # DOWN (action 2)
+        elif r < 0.60:
+            return 3  # ROTATE_CW (action 3)
+        elif r < 0.70:
+            return 4  # ROTATE_CCW (action 4)
+        elif r < 0.90:
+            return 5  # HARD_DROP (action 5)
         else:
-            return 7  # SWAP
+            return 6  # SWAP (action 6)
 
     def remember(self, state, action, reward, next_state, done, info=None, original_reward=None):
         """Store experience with shape validation"""
