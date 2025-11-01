@@ -2,14 +2,22 @@
 
 ## Quick Reference
 
-**Current Status:** ✅ Local optimum trap fixed - ready for fresh training
+**Current Status:** ✅ Progressive Curriculum Implemented - RECOMMENDED APPROACH
 
 **Key Files:**
-- `src/reward_shaping.py` - Reward calculations
-- `train.py` - Training loop (no reward clamp)
+- `src/progressive_reward.py` - Progressive curriculum reward shaper
+- `train_progressive.py` - Progressive curriculum training (RECOMMENDED)
+- `src/reward_shaping.py` - Original reward calculations
+- `train.py` - Original training loop
+- `tests/test_reward_diagnosis.py` - Diagnostic test showing why spreading fails
 - `tests/test_reward_system_complete.py` - Reward verification test
 
-**Training Command:**
+**Training Command (RECOMMENDED):**
+```bash
+rm -rf models/* logs/* && .venv/bin/python train_progressive.py --episodes 1000 --force_fresh
+```
+
+**Alternative (Original approach):**
 ```bash
 rm -rf models/* logs/* && .venv/bin/python train.py --episodes 2000 --reward_shaping positive --force_fresh
 ```
@@ -17,6 +25,72 @@ rm -rf models/* logs/* && .venv/bin/python train.py --episodes 2000 --reward_sha
 ---
 
 ## Debug History
+
+### [2025-11-01 15:15] ✅ FIX #4B: Progressive Curriculum - Fixed Learned Helplessness
+**Issue:** Agent learned to die faster! (45 steps → 11 steps over training)
+
+**Root Cause:**
+```
+Two bugs found:
+1. Episode count never updated → curriculum stuck in Stage 1 forever
+2. Stage 1 penalties TOO HARSH → agent learned "everything is bad, die fast"
+
+Symptoms:
+- Episode 10: 45 steps
+- Episode 100: 18 steps
+- Episode 1000: 11 steps (getting WORSE!)
+- Rewards: -2.0 × 25 holes = -50/step (devastating!)
+- Agent learned helplessness: "All actions bad → give up fast"
+```
+
+**Fixes Applied:**
+
+**Bug #1: Episode Count**
+```python
+# train_progressive.py - Added at start of each episode
+reward_shaper.episode_count = episode  # Critical for stage advancement!
+```
+
+**Bug #2: Reduced Penalties in Early Stages**
+```python
+# Stage 1 (Episodes 0-200): GENTLER to avoid learned helplessness
+shaped -= 1.0 * holes      # REDUCED from 2.0
+shaped -= 0.3 * bump       # REDUCED from 0.5
+shaped += min(steps * 0.5, 30.0)  # STRONGER survival bonus
+
+# Stage 2 (Episodes 200-400): BALANCED
+shaped -= 1.2 * holes      # REDUCED from 1.5
+shaped += 8.0 * spread     # INCREASED from 5.0
+shaped += min(steps * 0.4, 25.0)  # STRONGER survival
+
+# Stages 3-4: Unchanged
+```
+
+**Files Modified:**
+- `train_progressive.py` - Fixed episode count update
+- `src/progressive_reward.py` - Reduced early stage penalties, increased survival bonuses
+
+**Expected Results After Fix:**
+```
+Episodes 0-200:   Steps INCREASE 11 → 20+ (agent survives longer)
+                  Holes DECREASE 25 → 15 (learning clean placement)
+Episodes 200-400: Height management improves, still surviving
+Episodes 400-600: Columns used increases 4 → 8 (spreading!)
+Episodes 600+:    Balanced play + line clears
+```
+
+**Status:** Fixed - Ready to retrain: `rm -rf models/* logs/* && .venv/bin/python train_progressive.py --episodes 2000 --force_fresh`
+
+---
+
+### [2025-11-01 11:00] ⚠️  FIX #4A: Progressive Curriculum Learning (INITIAL - HAD BUGS)
+**Issue:** Skill-reward mismatch - agent lacks motor skills to spread cleanly
+
+**Solution Applied: 4-Stage Curriculum** (See Fix #4B for corrected version)
+
+**Status:** Had implementation bugs - see Fix #4B above
+
+---
 
 ### [2025-11-01 10:55] ✅ FIX #3: Local Optimum Trap
 **Issue:** Agent trapped - spreading created more holes than center-stacking
