@@ -156,75 +156,141 @@ def calculate_horizontal_distribution(board):
 
 def overnight_reward_shaping(obs, action, reward, done, info):
     """
-    Single shaping policy tuned for stable overnight training.
+    One-pass reward shaper focused on:
+      - Killing center stacking
+      - Encouraging side-well play
+      - Rewarding line clears more when the surface is clean
+      - (Optional) rewarding immediate improvements if prev_* metrics are provided in `info`
 
-    Structure:
-      shaped = base(line clear) + survival
-               - (height + holes + bumpiness + wells)
-               + (spread bonus)
-               - death penalty
-
-    Ranges:
-      Clamp to [-100, 600] to keep gradients well-behaved.
+    Returns a scalar 'shaped' reward to add to the env reward.
     """
-    board = extract_board_from_obs(obs)
+    import numpy as np
 
-    # Base: amplify env reward a bit (env reward is small/sparse)
-    shaped = float(reward) * 100.0
+    # --------- Robust board extraction (works for (20,10), (20,10,1), Dict, etc.) ----------
+    board = None
+    if isinstance(obs, dict):
+        # Try common keys
+        for k in ("board", "obs", "observation"):
+            if k in obs:
+                full = obs[k]
+                break
+        else:
+            # fall back to first array-like value
+            full = next((v for v in obs.values() if hasattr(v, "shape")), None)
+        if full is None:
+            # last resort
+            board = np.zeros((20, 10), dtype=np.int32)
+        else:
+            if len(full.shape) == 3:
+                # (H, W, C) → channel 0
+                full = full[:, :, 0]
+            # Prefer center crop to 20x10 (avoid bottom "wall" rows from wrappers)
+            h, w = full.shape[:2]
+            h0 = max(0, (h - 20) // 2)
+            w0 = max(0, (w - 10) // 2)
+            board = full[h0:h0+20, w0:w0+10]
+    elif hasattr(obs, "shape"):
+        if len(obs.shape) == 3:
+            board = obs[:, :, 0]
+        elif len(obs.shape) == 2:
+            board = obs
+        else:
+            board = np.zeros((20, 10), dtype=np.int32)
+    else:
+        board = np.zeros((20, 10), dtype=np.int32)
 
-    # Metrics (fast)
-    agg_h   = calculate_aggregate_height(board)       # 0..200
-    holes   = count_holes(board)                      # 0..~200
-    bump    = calculate_bumpiness(board)              # 0..~100
-    wells   = calculate_wells(board)                  # 0..~100
-    spread  = calculate_horizontal_distribution(board)  # 0..1
+    board = np.asarray(board)
+    board = (board > 0).astype(np.uint8)  # binary for geometry metrics
 
-    # Penalties - CALIBRATED to preserve learning gradient
-    shaped -= 0.05 * agg_h    # Light height penalty
-    shaped -= 0.75 * holes     # REDUCED: was overwhelming anti-center-stack signal
-    shaped -= 0.5 * bump       # MODERATE bumpiness penalty
-    shaped -= 0.10 * wells
+    # ----------------------------- Geometry helpers -----------------------------
+    def get_column_heights(b):
+        h, w = b.shape
+        heights = []
+        for c in range(w):
+            col = b[:, c]
+            nz = np.where(col > 0)[0]
+            heights.append(h - nz[0] if nz.size else 0)
+        return heights
 
-    # ANTI-CENTER-STACKING REWARDS (STRONG)
-    # Goal: Make spreading MORE rewarding than center-stacking + fewer holes
+    def count_holes(b):
+        h, w = b.shape
+        holes = 0
+        for c in range(w):
+            col = b[:, c]
+            top = np.argmax(col > 0) if np.any(col) else h
+            if top < h:
+                holes += int((col[top+1:] == 0).sum())
+        return int(holes)
 
-    # 1. Horizontal distribution bonus - STRENGTHENED
-    shaped += 25.0 * spread  # INCREASED from 15.0 for stronger signal
+    def surface_bumpiness(heights):
+        return float(np.sum(np.abs(np.diff(heights)))) if len(heights) > 1 else 0.0
 
-    # 2. Column usage bonus - LINEAR scaling - STRENGTHENED
-    heights = get_column_heights(board)
-    columns_used = sum(1 for h in heights if h > 0)
-    shaped += columns_used * 6.0  # INCREASED from 4.0 (max +60 for all 10)
+    def aggregate_height(heights):
+        return float(np.sum(heights))
 
-    # 3. Penalty for unused outer columns - STRENGTHENED
-    outer_columns = [0, 1, 2, 7, 8, 9]  # Leftmost and rightmost
-    outer_unused = sum(1 for c in outer_columns if heights[c] == 0)
-    shaped -= outer_unused * 8.0  # INCREASED from 5.0 (max -48)
+    # ----------------------------- Current metrics ------------------------------
+    heights   = get_column_heights(board)
+    holes     = count_holes(board)
+    bump      = surface_bumpiness(heights)
+    agg_h     = aggregate_height(heights)
+    height_std = float(np.std(np.array(heights, dtype=np.float32)))
 
-    # 4. Height concentration penalty - STRENGTHENED
-    # High std dev = bad center-stacking
-    if columns_used > 0:
-        heights_arr = np.array(heights, dtype=np.float32)
-        height_std = float(np.std(heights_arr))
-        shaped -= 3.0 * height_std  # INCREASED from 2.0
+    # Outer lanes (encourage using sides; discourage empty sides)
+    outer_idx     = [0, 1, 2, 7, 8, 9]
+    outer_empty   = sum(1 for i in outer_idx if heights[i] == 0)
+    columns_used  = sum(1 for h_ in heights if h_ > 0)
 
-    # Survival bonus - STRONG to encourage longer episodes
-    steps = int(info.get("steps", 0))
-    shaped += min(steps * 0.2, 20.0)  # Increased to 0.2 and cap to 20
+    # Optional deltas (only applied if training loop supplies prev_* in info)
+    prev_holes = info.get("prev_holes")
+    prev_bump  = info.get("prev_bump")
+    prev_agg_h = info.get("prev_agg_h")
 
-    # Line clear bonus (simple, monotonic)
-    lines = int(info.get("lines_cleared", 0))
+    # Lines cleared (env-dependent key)
+    lines = info.get("lines_cleared", info.get("lines", 0)) or 0
+
+    # ----------------------------- Shaping terms --------------------------------
+    shaped = 0.0
+
+    # Survival encouragement (small, steady)
+    shaped += 2.0  # per step stay-alive bonus
+
+    # Kill center-stacking: punish empty outer lanes & height concentration
+    shaped -= 60.0 * outer_empty          # strong—forces side usage
+    shaped -= 8.0  * height_std           # penalize "single mountain"
+
+    # Basic geometry costs (rebalance toward hole removal)
+    shaped -= 1.25 * holes
+    shaped -= 0.60 * bump
+    shaped -= 0.03 * agg_h
+
+    # Side-well pattern bonus (attractor away from center)
+    left_well  = (heights[0] <= 1) and all(h >= 8 for h in heights[1:4])
+    right_well = (heights[9] <= 1) and all(h >= 8 for h in heights[6:9])
+    if left_well or right_well:
+        shaped += 120.0
+
+    # Light spread encouragement (reward using more columns)
+    shaped += 4.0 * columns_used
+
+    # Optional immediate improvements (only when prev_* present)
+    if prev_holes is not None:
+        shaped += 2.0  * max(0.0, (prev_holes - holes))
+    if prev_bump is not None:
+        shaped += 0.5  * max(0.0, (prev_bump  - bump))
+    if prev_agg_h is not None:
+        shaped += 0.05 * max(0.0, (prev_agg_h - agg_h))
+
+    # Line clears scale with surface cleanliness
     if lines > 0:
-        shaped += lines * 80.0
-        if lines == 4:  # modest tetris kicker
-            shaped += 120.0
+        surface_clean = 1.0 / (1.0 + holes * 0.05 + bump * 0.02)
+        shaped += (250.0 * lines) * surface_clean
 
-    # Episode end penalty - LIGHT to encourage exploration
+    # Terminal penalty (keep small; big negatives can destabilize)
     if done:
-        shaped -= 5.0  # Light death penalty
+        shaped -= 20.0
 
-    # Clamp - WIDE range to preserve gradient
-    return float(np.clip(shaped, -150.0, 600.0))
+    # Return: env reward + shaped signal
+    return float(reward + shaped)
 
 
 # Backward-compat aliases so train.py keeps working without edits

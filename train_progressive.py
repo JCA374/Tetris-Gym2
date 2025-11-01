@@ -31,7 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Train Tetris AI with Progressive Curriculum')
 
-    parser.add_argument('--episodes', type=int, default=1000,
+    parser.add_argument('--episodes', type=int, default=20000,
                         help='Number of episodes to train (default: 1000)')
     parser.add_argument('--lr', type=float, default=5e-4,
                         help='Learning rate (default: 5e-4)')

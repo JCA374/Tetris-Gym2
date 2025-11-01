@@ -153,29 +153,50 @@ class Agent:
         return self.epsilon_end
 
     def _apply_reward_shaping(self, reward, done, info):
-        """Apply reward shaping optimized for long training"""
+        """Strong, positive shaping + light anti-center bias."""
         if self.reward_shaping_type == "none":
             return reward
 
-        shaped_reward = reward
+        shaped = float(reward)
 
-        # Penalties and bonuses
-        if done:
-            shaped_reward -= 20
+        # 1) Strong survival incentive
+        if not done:
+            shaped += 2.0
         else:
-            shaped_reward += 0.01
+            shaped -= 20.0  # keep death small vs. survival+lines
 
-        # Line clear bonuses (stronger for long training)
-        lines_cleared = info.get('lines_cleared', 0)
-        if lines_cleared > 0:
-            # Progressive bonus: more valuable in later training
-            episode_bonus_multiplier = min(2.0, 1.0 + (self.episodes_done / 10000))
-            shaped_reward += lines_cleared * 10 * episode_bonus_multiplier
-            
-            if lines_cleared == 4:  # Tetris bonus
-                shaped_reward += 40 * episode_bonus_multiplier
+        # 2) Pay a lot for clearing lines
+        lines = int(info.get('lines_cleared', 0))
+        if lines > 0:
+            # Big, convex bonuses (single->tetris)
+            line_bonus = {1: 100.0, 2: 300.0, 3: 700.0, 4: 1200.0}[lines]
+            # Mild progression with training length
+            prog = min(2.0, 1.0 + (self.episodes_done / 10000.0))
+            shaped += line_bonus * prog
 
-        return shaped_reward
+        # 3) Light penalties for structure pathologies (only when not clearing a line)
+        if lines == 0 and not done:
+            holes = int(info.get('holes', 0))
+            bump  = float(info.get('bumpiness', 0.0))
+            max_h = int(info.get('max_height', 0))
+
+            # small nudges (avoid negative spiral)
+            shaped -= 0.05 * holes
+            shaped -= 0.02 * bump
+            shaped -= 0.3  * max(0, max_h - 16)  # discourage towering over row 16
+
+            # 4) Tiny anti-center bias: penalize central columns being tallest
+            # Expect info.get('column_heights', list_of_10)
+            cols = info.get('column_heights', None)
+            if cols and len(cols) == 10:
+                left_edge = max(cols[0], cols[1])
+                right_edge = max(cols[8], cols[9])
+                center = max(cols[4], cols[5])
+                if center > max(left_edge, right_edge) + 2:
+                    shaped -= 2.0  # gentle push away from center pillars
+
+        return shaped
+
 
     def select_action(self, state, training=None, eval_mode=False):
         """
