@@ -1,0 +1,158 @@
+⚠️  TRAINING INTERRUPTED AT EPISODE 13512
+
+================================================================================
+TETRIS AI TRAINING - DEBUG SUMMARY
+================================================================================
+Generated: 2025-11-02 22:30:08
+Experiment: improved_20251102_214426
+
+================================================================================
+TRAINING CONFIGURATION
+================================================================================
+Total episodes:        13512
+Episodes trained:      3512 (from 10000 to 13512)
+Training time:         45.7 minutes (0.76 hours)
+Time per episode:      0.78 seconds
+Learning rate:         0.0005
+Batch size:            64
+Gamma (discount):      0.99
+Epsilon start:         1.0
+Epsilon end:           0.01
+Epsilon decay:         0.9995
+Final epsilon:         0.0298
+Model type:            dqn
+Complete vision:       True
+CNN enabled:           True
+
+================================================================================
+CURRICULUM PROGRESSION
+================================================================================
+Final stage:           line_clearing_focus
+
+Stage Thresholds:
+  Stage 1 (Foundation):        Episodes 0-500
+  Stage 2 (Clean Placement):   Episodes 500-1000
+  Stage 3 (Spreading Found):   Episodes 1000-2000
+  Stage 4 (Clean Spreading):   Episodes 2000-5000
+  Stage 5 (Line Clearing):     Episodes 5000+
+
+Stage Transitions:
+  Episode 10000: foundation           → line_clearing_focus
+
+================================================================================
+PERFORMANCE METRICS (Last 100 Episodes)
+================================================================================
+Average reward:         -1933.7
+Average steps:            196.1
+Average lines/ep:          0.06
+Total lines cleared:        102
+Overall lines/ep:         0.029
+First line at:         Episode 10579
+
+Board Quality Metrics:
+  Holes:                   45.5  (target: <15)
+  Columns used:            10.0/10  (target: ≥8)
+  Completable rows:         0.1  (target: 3-5)
+  Clean rows:               3.8  (target: 10-15)
+
+================================================================================
+SUCCESS CRITERIA EVALUATION
+================================================================================
+Stage 2 (Clean Placement):  ❌ FAILED
+  Holes: 45.5 (target: <15)
+
+Stage 4 (Clean Spreading):  ✅ SUCCESS
+  Columns used: 10.0/10 (target: ≥8)
+
+Stage 5 (Line Clearing):    ❌ FAILED
+  Lines/episode: 0.06 (target: ≥2.0)
+
+Overall Performance:        👍 GOOD PROGRESS
+
+================================================================================
+PROBLEM ANALYSIS & RECOMMENDATIONS
+================================================================================
+Problems Detected:
+  ⚠️  WARNING: Holes high (30-50) - Board quality poor
+  ✅ Spreading achieved (≥8 columns)!
+  ❌ CRITICAL: No line clears despite 5000+ episodes
+  ⚠️  WARNING: No completable rows (rows with 8-9 filled, no holes)
+  ⚠️  WARNING: Building tall towers with many holes
+
+Recommendations:
+  → Agent needs more time in earlier stages
+  → Consider increasing hole penalty by 20-30%
+  → Agent likely has too many holes to clear lines
+  → Check completable_rows metric (should be >0)
+  → May need to restart with stronger hole penalties
+  → Agent not learning to set up line clears
+  → Increase completable_rows bonus significantly
+  → This is the key metric bridging placement → line clears
+  → Agent getting survival bonus despite bad board
+  → Make survival bonus more conditional (only if holes <20)
+  → Add explicit height penalty for towers >15
+
+================================================================================
+NEXT STEPS
+================================================================================
+👍 Good progress! Agent has learned spreading.
+
+Suggested next steps:
+  1. Continue training for 3000 more episodes
+  2. Focus on reducing holes to enable line clears
+  3. Monitor completable_rows metric - should increase
+  4. Expect first consistent line clears around episode 6000-8000
+
+================================================================================
+REWARD FUNCTION EFFECTIVENESS
+================================================================================
+Current stage: line_clearing_focus
+
+Typical reward for current performance (stage: line_clearing_focus):
+  Assumptions: 45 holes, 9 columns, 196 steps
+
+  Hole penalty:        -3.5 × 45 = -159.1
+  Completable rows:    +15.0 × 0.1 = 2.1
+  Clean rows:          +12.0 × 3.8 = 45.6
+  Spread bonus:        ~+20.0
+  Columns bonus:       +4.0 × 10 = 39.9
+  Survival bonus:      +0.0 (NO bonus, holes ≥30)
+
+If rewards are consistently negative:
+  → Agent is being penalized more than rewarded
+  → This is OK in early stages (learning from mistakes)
+  → Should become positive by episode 3000-5000
+
+If rewards are too high (>10000) without line clears:
+  → Agent may be exploiting survival bonus
+  → Check if holes are high - survival should be conditional
+  → Hole penalty may need to be stronger
+
+================================================================================
+OUTPUT FILES
+================================================================================
+Log directory:         logs/improved_20251102_214426
+Board states:          board_states.txt
+Episode log (CSV):     episode_log.csv
+Reward plot:           reward_progress.png
+Metrics plot:          training_metrics.png
+Debug summary:         DEBUG_SUMMARY.txt (this file)
+
+================================================================================
+USEFUL DEBUG COMMANDS
+================================================================================
+View recent board states:
+  tail -100 logs/improved_20251102_214426/board_states.txt
+
+Analyze hole progression:
+  awk -F',' 'NR>1 {print $4,$6}' logs/improved_20251102_214426/episode_log.csv | tail -100
+
+Check line clearing progress:
+  awk -F',' 'NR>1 {sum+=$7} NR%1000==0 {print NR,sum}' logs/improved_20251102_214426/episode_log.csv
+
+Resume training:
+  python train_progressive_improved.py --episodes 18512 --resume
+
+================================================================================
+END OF DEBUG SUMMARY
+================================================================================

@@ -151,16 +151,19 @@ class ImprovedProgressiveRewardShaper:
         
         # Balanced hole penalty (not too harsh to allow exploration)
         shaped -= 0.8 * metrics['holes']
-        
+
+        # CRITICAL: Center-stacking detection and penalty
+        shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
+
         # Height and structure penalties
         shaped -= 0.04 * metrics['aggregate_height']
         shaped -= 0.3 * metrics['bumpiness']
         shaped -= 0.08 * metrics['wells']
         
-        # Spreading rewards (gentle introduction)
-        shaped += 15.0 * metrics['spread']  # Horizontal distribution bonus
-        shaped += metrics['columns_used'] * 3.0  # Reward for using columns
-        shaped -= metrics['outer_unused'] * 4.0  # Penalty for unused outer columns
+        # Spreading rewards (MASSIVELY INCREASED to fight center-stacking)
+        shaped += 40.0 * metrics['spread']  # MASSIVELY INCREASED from 20.0
+        shaped += metrics['columns_used'] * 8.0  # MASSIVELY INCREASED from 4.0
+        shaped -= metrics['outer_unused'] * 15.0  # MASSIVELY INCREASED from 5.0 - Heavy penalty for unused outer
         
         # Reward even height distribution
         shaped -= 2.0 * metrics['height_std']
@@ -190,50 +193,70 @@ class ImprovedProgressiveRewardShaper:
         Focus: Master spreading without creating holes
         """
         shaped = float(base_reward) * 100.0
-        
-        # Strong hole penalty now that agent knows how to spread
-        shaped -= 1.5 * metrics['holes']
-        
+
+        # IMPROVED: Stronger hole penalty to prevent swiss cheese towers
+        shaped -= 2.5 * metrics['holes']  # INCREASED from 1.5
+
+        # CRITICAL: Center-stacking detection and penalty
+        shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
+
         # Bonus for rows that are almost complete (8-9 filled, no holes)
-        shaped += metrics['completable_rows'] * 8.0
-        
+        shaped += metrics['completable_rows'] * 10.0  # INCREASED from 8.0
+
         # Height and structure
         shaped -= 0.05 * metrics['aggregate_height']
         shaped -= 0.4 * metrics['bumpiness']
         shaped -= 0.1 * metrics['wells']
-        
-        # Strong spreading rewards
-        shaped += 25.0 * metrics['spread']
-        shaped += metrics['columns_used'] * 5.0
-        shaped -= metrics['outer_unused'] * 8.0
-        
+
+        # NEW: Explicit height penalty - discourage tall towers
+        heights = metrics['column_heights']
+        max_height = max(heights) if heights else 0
+        if max_height > 15:
+            shaped -= (max_height - 15) * 8.0  # -8 per row above 15
+
+        # Strong spreading rewards (MASSIVELY INCREASED to fight center-stacking)
+        shaped += 50.0 * metrics['spread']  # DOUBLED from 25.0
+        shaped += metrics['columns_used'] * 12.0  # DOUBLED from 6.0
+        shaped -= metrics['outer_unused'] * 20.0  # INCREASED from 8.0
+
         # Penalty for uneven heights
         shaped -= 3.0 * metrics['height_std']
-        
-        # Clean rows bonus (increased)
-        shaped += metrics['clean_rows'] * 6.0
-        
-        # Conditional survival bonus (only if maintaining low holes)
-        if metrics['holes'] < 30:
-            shaped += min(info.get('steps', 0) * 0.4, 30.0)
+
+        # Clean rows bonus (balanced after fix)
+        shaped += metrics['clean_rows'] * 5.0  # REDUCED from 7.0 after clean_rows fix
+
+        # IMPROVED: Much more conditional survival bonus
+        if metrics['holes'] < 15:
+            shaped += min(info.get('steps', 0) * 0.4, 30.0)  # Full bonus if very clean
+        elif metrics['holes'] < 30:
+            shaped += min(info.get('steps', 0) * 0.2, 15.0)  # Reduced if moderate holes
         else:
-            shaped += min(info.get('steps', 0) * 0.1, 10.0)
-        
-        # Strong line clear bonuses
+            shaped += 0  # NO bonus if 30+ holes
+
+        # Strong line clear bonuses - SCALED BY BOARD QUALITY
         lines = metrics['lines_cleared']
         if lines > 0:
-            shaped += lines * 100.0
+            # Calculate board quality (0.3 = terrible, 1.0 = perfect)
+            quality = max(0.3, 1.0 - (metrics['holes'] / 50.0) - (metrics['bumpiness'] / 100.0))
+
+            shaped += lines * 100.0 * quality  # Scale by quality!
             if lines == 2:
-                shaped += 30.0
+                shaped += 30.0 * quality
             elif lines == 3:
-                shaped += 60.0
+                shaped += 60.0 * quality
             elif lines == 4:  # Tetris
-                shaped += 200.0
-        
+                shaped += 200.0 * quality  # Clean boards get bigger rewards!
+
         if done:
-            shaped -= 25.0
-        
-        return float(np.clip(shaped, -300.0, 600.0))
+            # Heavier penalty if dying with many holes (scaled for Stage 4)
+            if metrics['holes'] > 40:
+                shaped -= 200.0  # Heavy penalty for terrible board
+            elif metrics['holes'] > 30:
+                shaped -= 150.0  # Moderate penalty
+            else:
+                shaped -= 75.0  # Standard penalty
+
+        return float(np.clip(shaped, -400.0, 600.0))
     
     def _line_clearing_reward(self, base_reward: float, metrics: Dict,
                              done: bool, info: Dict) -> float:
@@ -242,55 +265,82 @@ class ImprovedProgressiveRewardShaper:
         Focus: Maximize line clears with clean, spread placement
         """
         shaped = float(base_reward) * 100.0
-        
-        # Very strong hole penalty
-        shaped -= 2.0 * metrics['holes']
-        
+
+        # IMPROVED: VERY strong hole penalty - force clean play
+        shaped -= 3.5 * metrics['holes']  # INCREASED from 2.0
+
+        # CRITICAL: Center-stacking detection and penalty
+        shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
+
         # Strong bonus for completable rows
-        shaped += metrics['completable_rows'] * 12.0
-        
+        shaped += metrics['completable_rows'] * 15.0  # INCREASED from 12.0
+
         # Height and structure
         shaped -= 0.06 * metrics['aggregate_height']
         shaped -= 0.5 * metrics['bumpiness']
         shaped -= 0.12 * metrics['wells']
-        
-        # Maintain spreading
-        shaped += 20.0 * metrics['spread']
-        shaped += metrics['columns_used'] * 4.0
-        shaped -= metrics['outer_unused'] * 10.0
-        shaped -= 4.0 * metrics['height_std']
-        
-        # Clean placement is critical
-        shaped += metrics['clean_rows'] * 10.0
-        
-        # Survival only matters if playing clean
-        if metrics['holes'] < 20:
+
+        # NEW: Explicit height penalty - strongly discourage tall towers
+        heights = metrics['column_heights']
+        max_height = max(heights) if heights else 0
+        if max_height > 15:
+            shaped -= (max_height - 15) * 12.0  # -12 per row above 15 (STRONG)
+        if max_height > 18:
+            shaped -= 50.0  # Extra penalty for being at the ceiling
+
+        # Maintain spreading (MASSIVELY INCREASED to fight center-stacking)
+        shaped += 60.0 * metrics['spread']  # MASSIVELY INCREASED from 25.0
+        shaped += metrics['columns_used'] * 15.0  # MASSIVELY INCREASED from 6.0
+        shaped -= metrics['outer_unused'] * 30.0  # TRIPLED from 10.0
+        shaped -= 5.0 * metrics['height_std']  # Slightly increased
+
+        # Clean placement is critical (balanced after clean_rows fix)
+        shaped += metrics['clean_rows'] * 6.0  # REDUCED from 12.0 after clean_rows fix
+
+        # IMPROVED: VERY conditional survival bonus - only reward clean play
+        if metrics['holes'] < 10:
+            # Excellent - full bonus
             shaped += min(info.get('steps', 0) * 0.5, 40.0)
-        
-        # Massive line clear bonuses
+        elif metrics['holes'] < 20:
+            # Good - reduced bonus
+            shaped += min(info.get('steps', 0) * 0.3, 25.0)
+        elif metrics['holes'] < 30:
+            # Acceptable - minimal bonus
+            shaped += min(info.get('steps', 0) * 0.1, 10.0)
+        else:
+            # Too many holes - NO survival bonus
+            shaped += 0
+
+        # Massive line clear bonuses - SCALED BY BOARD QUALITY
         lines = metrics['lines_cleared']
         if lines > 0:
-            shaped += lines * 150.0
+            # Calculate board quality (0.3 = terrible, 1.0 = perfect)
+            # Lower holes and bumpiness = higher quality = bigger reward
+            quality = max(0.3, 1.0 - (metrics['holes'] / 50.0) - (metrics['bumpiness'] / 100.0))
+
+            shaped += lines * 150.0 * quality  # Scale base reward by quality!
             if lines == 2:
-                shaped += 50.0
+                shaped += 50.0 * quality
             elif lines == 3:
-                shaped += 100.0
+                shaped += 100.0 * quality
             elif lines == 4:  # Tetris
-                shaped += 400.0
-        
+                shaped += 400.0 * quality  # Only big bonus on clean boards!
+
         # Efficiency bonus for clearing lines with fewer pieces
         if lines > 0 and info.get('pieces_placed', 1) > 0:
             efficiency = lines / info.get('pieces_placed', 1)
             shaped += efficiency * 100.0
-        
+
         if done:
-            # Scaled death penalty based on performance
+            # IMPROVED: Scaled death penalty based on board quality (PDF recommendation: -200 to -300)
             if metrics['holes'] > 50:
-                shaped -= 50.0  # Heavy penalty for dying with many holes
+                shaped -= 300.0  # HUGE penalty for dying with terrible board
+            elif metrics['holes'] > 30:
+                shaped -= 200.0  # Heavy penalty for dying with bad board
             else:
-                shaped -= 30.0
-        
-        return float(np.clip(shaped, -400.0, 800.0))
+                shaped -= 100.0  # Standard penalty for clean death
+
+        return float(np.clip(shaped, -500.0, 800.0))  # Increased negative clip range
     
     def calculate_metrics(self, board: np.ndarray, info: Dict) -> Dict[str, Any]:
         """Calculate all metrics needed for reward shaping"""
@@ -307,7 +357,15 @@ class ImprovedProgressiveRewardShaper:
         heights = get_column_heights(board)
         metrics['column_heights'] = heights
         metrics['columns_used'] = sum(1 for h in heights if h > 0)
+
+        # Count unused outer columns (0,1,2,7,8,9) - CRITICAL for detecting center-stacking
         metrics['outer_unused'] = sum([
+            1 for i in [0, 1, 2, 7, 8, 9] if heights[i] == 0
+        ])
+
+        # Extra metric: count completely empty outer columns (height = 0)
+        # This is different from outer_unused which just counts any unused
+        metrics['empty_outer_cols'] = sum([
             1 for i in [0, 1, 2, 7, 8, 9] if heights[i] == 0
         ])
 
@@ -324,38 +382,49 @@ class ImprovedProgressiveRewardShaper:
         metrics['clean_rows'] = self.count_clean_rows(board)
         metrics['completable_rows'] = self.count_completable_rows(board)
 
+        # Center-stacking detection (critical for preventing main problem!)
+        metrics['center_stacking_penalty'] = self.detect_center_stacking(heights)
+
         # Lines cleared from info
         metrics['lines_cleared'] = info.get('lines_cleared', 0)
 
         return metrics
     
     def count_clean_rows(self, board: np.ndarray) -> int:
-        """Count rows with no holes (all filled or all empty)"""
+        """
+        Count rows with no holes AND at least 3 filled cells
+        (Empty rows don't count - agent must actually place pieces cleanly)
+        """
         clean_rows = 0
         for row in range(20):
             row_data = board[row, :]
             filled_count = np.sum(row_data)
-            
-            # Check if row has no holes
-            if filled_count == 0:  # Empty row
+
+            # FIXED: Empty rows don't count as clean!
+            # Only count rows with at least 3 pieces
+            if filled_count < 3:
+                continue
+
+            # Full row (about to clear) - definitely clean
+            if filled_count == 10:
                 clean_rows += 1
-            elif filled_count == 10:  # Full row (about to clear)
-                clean_rows += 1
-            else:
-                # Check if filled cells are contiguous (no holes)
-                first_filled = -1
-                last_filled = -1
-                for col in range(10):
-                    if row_data[col]:
-                        if first_filled == -1:
-                            first_filled = col
-                        last_filled = col
-                
-                if first_filled != -1:
-                    expected_filled = last_filled - first_filled + 1
-                    if filled_count == expected_filled:
-                        clean_rows += 1
-        
+                continue
+
+            # Check if filled cells are contiguous (no holes)
+            first_filled = -1
+            last_filled = -1
+            for col in range(10):
+                if row_data[col]:
+                    if first_filled == -1:
+                        first_filled = col
+                    last_filled = col
+
+            if first_filled != -1:
+                expected_filled = last_filled - first_filled + 1
+                if filled_count == expected_filled:
+                    # Contiguous filled cells with no holes
+                    clean_rows += 1
+
         return clean_rows
     
     def count_completable_rows(self, board: np.ndarray) -> int:
@@ -382,7 +451,38 @@ class ImprovedProgressiveRewardShaper:
                     completable += 1
         
         return completable
-    
+
+    def detect_center_stacking(self, heights: list) -> float:
+        """
+        Detect and heavily penalize center-only stacking.
+        Returns a penalty value (always negative or zero).
+
+        CRITICAL: Agent must use outer columns (0,1,2,7,8,9) not just center (3,4,5,6)
+        """
+        outer_cols = [0, 1, 2, 7, 8, 9]
+        center_cols = [3, 4, 5, 6]
+
+        outer_height = sum(heights[i] for i in outer_cols)
+        center_height = sum(heights[i] for i in center_cols)
+
+        total_height = outer_height + center_height
+        if total_height > 0:
+            center_ratio = center_height / total_height
+
+            # If 70%+ of pieces are in center columns = center stacking!
+            if center_ratio > 0.7:
+                # MASSIVE LINEAR penalty to break center-stacking habit
+                # 70% = -100, 80% = -150, 90% = -200, 100% = -250 PER STEP!
+                penalty = -500.0 * (center_ratio - 0.5)
+                return penalty
+            elif center_ratio > 0.6:
+                # Moderate penalty for mild center preference
+                # 60% = -10, 65% = -15, 70% = -20
+                penalty = -100.0 * (center_ratio - 0.5)
+                return penalty
+
+        return 0.0
+
     def reset(self):
         """Reset metrics for new episode"""
         pass  # Keep history across episodes

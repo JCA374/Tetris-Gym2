@@ -10,6 +10,7 @@ import argparse
 import os
 import sys
 import time
+import signal
 from datetime import datetime
 from pathlib import Path
 import numpy as np
@@ -22,6 +23,369 @@ from src.utils import TrainingLogger, make_dir
 # Import our improved reward shaper
 from src.progressive_reward_improved import ImprovedProgressiveRewardShaper
 from src.reward_shaping import get_column_heights, count_holes, calculate_bumpiness, extract_board_from_obs
+
+# Global variable for graceful shutdown
+_training_interrupted = False
+
+
+def generate_debug_summary(args, start_episode, total_episodes, training_time,
+                          lines_cleared_total, first_line_episode,
+                          recent_rewards, recent_steps, recent_lines,
+                          recent_holes, recent_columns, recent_completable_rows,
+                          recent_clean_rows, reward_shaper, agent, logger):
+    """Generate comprehensive debug summary for post-training analysis"""
+
+    episodes_trained = total_episodes - start_episode
+
+    # Calculate statistics
+    avg_reward = np.mean(recent_rewards) if recent_rewards else 0
+    avg_steps = np.mean(recent_steps) if recent_steps else 0
+    avg_lines = np.mean(recent_lines) if recent_lines else 0
+    avg_holes = np.mean(recent_holes) if recent_holes else 0
+    avg_cols = np.mean(recent_columns) if recent_columns else 0
+    avg_completable = np.mean(recent_completable_rows) if recent_completable_rows else 0
+    avg_clean = np.mean(recent_clean_rows) if recent_clean_rows else 0
+
+    lines_per_episode = lines_cleared_total / episodes_trained if episodes_trained > 0 else 0
+
+    summary = []
+    summary.append("=" * 80)
+    summary.append("TETRIS AI TRAINING - DEBUG SUMMARY")
+    summary.append("=" * 80)
+    summary.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    summary.append(f"Experiment: {logger.experiment_name}")
+    summary.append("")
+
+    # Training Configuration
+    summary.append("=" * 80)
+    summary.append("TRAINING CONFIGURATION")
+    summary.append("=" * 80)
+    summary.append(f"Total episodes:        {total_episodes}")
+    summary.append(f"Episodes trained:      {episodes_trained} (from {start_episode} to {total_episodes})")
+    summary.append(f"Training time:         {training_time/60:.1f} minutes ({training_time/3600:.2f} hours)")
+    summary.append(f"Time per episode:      {training_time/episodes_trained:.2f} seconds" if episodes_trained > 0 else "N/A")
+    summary.append(f"Learning rate:         {args.lr}")
+    summary.append(f"Batch size:            {args.batch_size}")
+    summary.append(f"Gamma (discount):      {args.gamma}")
+    summary.append(f"Epsilon start:         {args.epsilon_start}")
+    summary.append(f"Epsilon end:           {args.epsilon_end}")
+    summary.append(f"Epsilon decay:         {args.epsilon_decay}")
+    summary.append(f"Final epsilon:         {agent.epsilon:.4f}")
+    summary.append(f"Model type:            {args.model_type}")
+    summary.append(f"Complete vision:       {args.use_complete_vision}")
+    summary.append(f"CNN enabled:           {args.use_cnn}")
+    summary.append("")
+
+    # Curriculum Stage Information
+    summary.append("=" * 80)
+    summary.append("CURRICULUM PROGRESSION")
+    summary.append("=" * 80)
+    summary.append(f"Final stage:           {reward_shaper.get_current_stage()}")
+    summary.append("")
+    summary.append("Stage Thresholds:")
+    summary.append("  Stage 1 (Foundation):        Episodes 0-500")
+    summary.append("  Stage 2 (Clean Placement):   Episodes 500-1000")
+    summary.append("  Stage 3 (Spreading Found):   Episodes 1000-2000")
+    summary.append("  Stage 4 (Clean Spreading):   Episodes 2000-5000")
+    summary.append("  Stage 5 (Line Clearing):     Episodes 5000+")
+    summary.append("")
+
+    if reward_shaper.stage_transitions:
+        summary.append("Stage Transitions:")
+        for transition in reward_shaper.stage_transitions:
+            summary.append(f"  Episode {transition['episode']:5d}: {transition['from_stage']:20s} → {transition['to_stage']}")
+    else:
+        summary.append("Stage Transitions: None (training too short or didn't advance)")
+    summary.append("")
+
+    # Performance Metrics
+    summary.append("=" * 80)
+    summary.append("PERFORMANCE METRICS (Last 100 Episodes)")
+    summary.append("=" * 80)
+    summary.append(f"Average reward:        {avg_reward:8.1f}")
+    summary.append(f"Average steps:         {avg_steps:8.1f}")
+    summary.append(f"Average lines/ep:      {avg_lines:8.2f}")
+    summary.append(f"Total lines cleared:   {lines_cleared_total:8d}")
+    summary.append(f"Overall lines/ep:      {lines_per_episode:8.3f}")
+    summary.append(f"First line at:         Episode {first_line_episode if first_line_episode else 'Never'}")
+    summary.append("")
+    summary.append("Board Quality Metrics:")
+    summary.append(f"  Holes:               {avg_holes:8.1f}  (target: <15)")
+    summary.append(f"  Columns used:        {avg_cols:8.1f}/10  (target: ≥8)")
+    summary.append(f"  Completable rows:    {avg_completable:8.1f}  (target: 3-5)")
+    summary.append(f"  Clean rows:          {avg_clean:8.1f}  (target: 10-15)")
+    summary.append("")
+
+    # Success Criteria Evaluation
+    summary.append("=" * 80)
+    summary.append("SUCCESS CRITERIA EVALUATION")
+    summary.append("=" * 80)
+
+    stage2_success = avg_holes < 15
+    stage4_success = avg_cols >= 8
+    stage5_success = avg_lines >= 2.0
+    overall_success = avg_steps >= 100 and avg_holes < 10 and avg_lines >= 5
+
+    summary.append(f"Stage 2 (Clean Placement):  {'✅ SUCCESS' if stage2_success else '❌ FAILED'}")
+    summary.append(f"  Holes: {avg_holes:.1f} (target: <15)")
+    summary.append("")
+    summary.append(f"Stage 4 (Clean Spreading):  {'✅ SUCCESS' if stage4_success else '❌ FAILED'}")
+    summary.append(f"  Columns used: {avg_cols:.1f}/10 (target: ≥8)")
+    summary.append("")
+    summary.append(f"Stage 5 (Line Clearing):    {'✅ SUCCESS' if stage5_success else '❌ FAILED'}")
+    summary.append(f"  Lines/episode: {avg_lines:.2f} (target: ≥2.0)")
+    summary.append("")
+    summary.append(f"Overall Performance:        {'🎉 EXCELLENT!' if overall_success else '👍 GOOD PROGRESS' if (stage4_success and avg_steps >= 80) else '📚 NEEDS MORE TRAINING'}")
+    summary.append("")
+
+    # Problem Analysis
+    summary.append("=" * 80)
+    summary.append("PROBLEM ANALYSIS & RECOMMENDATIONS")
+    summary.append("=" * 80)
+
+    problems = []
+    recommendations = []
+
+    # Analyze holes
+    if avg_holes > 50:
+        problems.append("❌ CRITICAL: Holes too high (>50) - Board is swiss cheese")
+        recommendations.append("→ Agent not learning clean placement")
+        recommendations.append("→ Increase hole penalty in current stage by 50%")
+        recommendations.append("→ Reduce survival bonus if holes > 30")
+    elif avg_holes > 30:
+        problems.append("⚠️  WARNING: Holes high (30-50) - Board quality poor")
+        recommendations.append("→ Agent needs more time in earlier stages")
+        recommendations.append("→ Consider increasing hole penalty by 20-30%")
+    elif avg_holes > 15:
+        problems.append("⚠️  Holes moderate (15-30) - Room for improvement")
+        recommendations.append("→ Agent progressing but not mastered clean play")
+        recommendations.append("→ Continue training in current stage")
+    else:
+        problems.append("✅ Holes low (<15) - Clean placement achieved!")
+
+    # Analyze spreading
+    if avg_cols < 6:
+        problems.append("❌ CRITICAL: Not spreading (<6 columns) - Center stacking")
+        recommendations.append("→ Increase spread bonus and columns_used reward")
+        recommendations.append("→ Increase outer_unused penalty")
+        recommendations.append("→ Check if Stage 3+ rewards are active")
+    elif avg_cols < 8:
+        problems.append("⚠️  WARNING: Limited spreading (6-8 columns)")
+        recommendations.append("→ Agent learning to spread but not fully")
+        recommendations.append("→ Continue training in spreading stages")
+    else:
+        problems.append("✅ Spreading achieved (≥8 columns)!")
+
+    # Analyze line clearing
+    if avg_lines < 0.1 and total_episodes > 5000:
+        problems.append("❌ CRITICAL: No line clears despite 5000+ episodes")
+        recommendations.append("→ Agent likely has too many holes to clear lines")
+        recommendations.append("→ Check completable_rows metric (should be >0)")
+        recommendations.append("→ May need to restart with stronger hole penalties")
+    elif avg_lines < 1.0 and total_episodes > 5000:
+        problems.append("⚠️  WARNING: Low line clears (<1/episode) in Stage 5")
+        recommendations.append("→ Agent needs to reduce holes first")
+        recommendations.append("→ Increase completable_rows bonus")
+        recommendations.append("→ Continue training for 2000-3000 more episodes")
+    elif avg_lines < 2.0:
+        problems.append("⚠️  Line clears happening but infrequent")
+        recommendations.append("→ Good progress, continue training")
+    else:
+        problems.append("✅ Consistent line clearing (≥2/episode)!")
+
+    # Analyze completable rows
+    if avg_completable < 0.5 and total_episodes > 3000:
+        problems.append("⚠️  WARNING: No completable rows (rows with 8-9 filled, no holes)")
+        recommendations.append("→ Agent not learning to set up line clears")
+        recommendations.append("→ Increase completable_rows bonus significantly")
+        recommendations.append("→ This is the key metric bridging placement → line clears")
+
+    # Check for tall towers
+    if avg_holes > 30 and avg_steps > 100:
+        problems.append("⚠️  WARNING: Building tall towers with many holes")
+        recommendations.append("→ Agent getting survival bonus despite bad board")
+        recommendations.append("→ Make survival bonus more conditional (only if holes <20)")
+        recommendations.append("→ Add explicit height penalty for towers >15")
+
+    if problems:
+        summary.append("Problems Detected:")
+        for problem in problems:
+            summary.append(f"  {problem}")
+        summary.append("")
+
+    if recommendations:
+        summary.append("Recommendations:")
+        for rec in recommendations:
+            summary.append(f"  {rec}")
+        summary.append("")
+
+    if not recommendations:
+        summary.append("✅ No critical issues detected!")
+        summary.append("→ Continue training to further improve performance")
+        summary.append("")
+
+    # Next Steps
+    summary.append("=" * 80)
+    summary.append("NEXT STEPS")
+    summary.append("=" * 80)
+
+    if overall_success:
+        summary.append("🎉 Training successful! Agent has mastered Tetris basics.")
+        summary.append("")
+        summary.append("Suggested next steps:")
+        summary.append("  1. Continue training for 5000-10000 more episodes to optimize")
+        summary.append("  2. Experiment with different epsilon decay rates")
+        summary.append("  3. Try different model architectures (dueling DQN)")
+        summary.append("  4. Test the agent in different game modes")
+    elif stage4_success and avg_steps >= 80:
+        summary.append("👍 Good progress! Agent has learned spreading.")
+        summary.append("")
+        summary.append("Suggested next steps:")
+        summary.append(f"  1. Continue training for {max(10000 - total_episodes, 3000)} more episodes")
+        summary.append("  2. Focus on reducing holes to enable line clears")
+        summary.append("  3. Monitor completable_rows metric - should increase")
+        summary.append("  4. Expect first consistent line clears around episode 6000-8000")
+    else:
+        summary.append("📚 Training in progress. Agent still learning fundamentals.")
+        summary.append("")
+        summary.append("Suggested next steps:")
+        if total_episodes < 5000:
+            summary.append(f"  1. Continue training to at least episode 5000 ({5000 - total_episodes} more episodes)")
+            summary.append("  2. Let curriculum fully progress through all 5 stages")
+            summary.append("  3. Monitor stage transitions and metrics")
+        else:
+            summary.append("  1. Review problems and recommendations above")
+            summary.append("  2. Consider adjusting reward function based on analysis")
+            summary.append("  3. If holes still >50, consider restarting with stronger penalties")
+            summary.append("  4. If spreading not happening, increase spread bonuses")
+
+    summary.append("")
+
+    # Reward Function Analysis
+    summary.append("=" * 80)
+    summary.append("REWARD FUNCTION EFFECTIVENESS")
+    summary.append("=" * 80)
+    summary.append(f"Current stage: {reward_shaper.get_current_stage()}")
+    summary.append("")
+
+    # Example reward calculation for current performance
+    current_stage = reward_shaper.get_current_stage()
+    summary.append(f"Typical reward for current performance (stage: {current_stage}):")
+    summary.append(f"  Assumptions: {int(avg_holes)} holes, {int(avg_cols)} columns, {int(avg_steps)} steps")
+    summary.append("")
+
+    if current_stage == "line_clearing_focus":
+        summary.append("  Hole penalty:        -3.5 × {:.0f} = {:.1f}".format(avg_holes, -3.5 * avg_holes))
+        summary.append("  Completable rows:    +15.0 × {:.1f} = {:.1f}".format(avg_completable, 15.0 * avg_completable))
+        summary.append("  Clean rows:          +12.0 × {:.1f} = {:.1f}".format(avg_clean, 12.0 * avg_clean))
+        summary.append("  Spread bonus:        ~+20.0")
+        summary.append("  Columns bonus:       +4.0 × {:.0f} = {:.1f}".format(avg_cols, 4.0 * avg_cols))
+        if avg_holes < 10:
+            survival = min(avg_steps * 0.5, 40.0)
+            summary.append(f"  Survival bonus:      +{survival:.1f} (full bonus, holes <10)")
+        elif avg_holes < 20:
+            survival = min(avg_steps * 0.3, 25.0)
+            summary.append(f"  Survival bonus:      +{survival:.1f} (reduced, holes 10-20)")
+        elif avg_holes < 30:
+            survival = min(avg_steps * 0.1, 10.0)
+            summary.append(f"  Survival bonus:      +{survival:.1f} (minimal, holes 20-30)")
+        else:
+            summary.append("  Survival bonus:      +0.0 (NO bonus, holes ≥30)")
+    elif current_stage == "clean_spreading":
+        summary.append("  Hole penalty:        -2.5 × {:.0f} = {:.1f}".format(avg_holes, -2.5 * avg_holes))
+        summary.append("  Completable rows:    +10.0 × {:.1f} = {:.1f}".format(avg_completable, 10.0 * avg_completable))
+        summary.append("  Clean rows:          +7.0 × {:.1f} = {:.1f}".format(avg_clean, 7.0 * avg_clean))
+        summary.append("  Spread bonus:        ~+25.0")
+        summary.append("  Columns bonus:       +5.0 × {:.0f} = {:.1f}".format(avg_cols, 5.0 * avg_cols))
+
+    summary.append("")
+    summary.append("If rewards are consistently negative:")
+    summary.append("  → Agent is being penalized more than rewarded")
+    summary.append("  → This is OK in early stages (learning from mistakes)")
+    summary.append("  → Should become positive by episode 3000-5000")
+    summary.append("")
+    summary.append("If rewards are too high (>10000) without line clears:")
+    summary.append("  → Agent may be exploiting survival bonus")
+    summary.append("  → Check if holes are high - survival should be conditional")
+    summary.append("  → Hole penalty may need to be stronger")
+    summary.append("")
+
+    # File References
+    summary.append("=" * 80)
+    summary.append("OUTPUT FILES")
+    summary.append("=" * 80)
+    summary.append(f"Log directory:         {logger.experiment_dir}")
+    summary.append(f"Board states:          board_states.txt")
+    summary.append(f"Episode log (CSV):     episode_log.csv")
+    summary.append(f"Reward plot:           reward_progress.png")
+    summary.append(f"Metrics plot:          training_metrics.png")
+    summary.append(f"Debug summary:         DEBUG_SUMMARY.txt (this file)")
+    summary.append("")
+
+    # Useful Commands
+    summary.append("=" * 80)
+    summary.append("USEFUL DEBUG COMMANDS")
+    summary.append("=" * 80)
+    summary.append("View recent board states:")
+    summary.append(f"  tail -100 {logger.experiment_dir}/board_states.txt")
+    summary.append("")
+    summary.append("Analyze hole progression:")
+    summary.append(f"  awk -F',' 'NR>1 {{print $4,$6}}' {logger.experiment_dir}/episode_log.csv | tail -100")
+    summary.append("")
+    summary.append("Check line clearing progress:")
+    summary.append(f"  awk -F',' 'NR>1 {{sum+=$7}} NR%1000==0 {{print NR,sum}}' {logger.experiment_dir}/episode_log.csv")
+    summary.append("")
+    summary.append("Resume training:")
+    summary.append(f"  python train_progressive_improved.py --episodes {total_episodes + 5000} --resume")
+    summary.append("")
+
+    summary.append("=" * 80)
+    summary.append("END OF DEBUG SUMMARY")
+    summary.append("=" * 80)
+
+    return "\n".join(summary)
+
+
+def save_debug_summary(logger, args, start_episode, current_episode, training_time,
+                       lines_cleared_total, first_line_episode,
+                       recent_rewards, recent_steps, recent_lines,
+                       recent_holes, recent_columns, recent_completable_rows,
+                       recent_clean_rows, reward_shaper, agent, is_interrupted=False):
+    """Save debug summary to file with current training state"""
+    try:
+        debug_summary = generate_debug_summary(
+            args=args,
+            start_episode=start_episode,
+            total_episodes=current_episode,
+            training_time=training_time,
+            lines_cleared_total=lines_cleared_total,
+            first_line_episode=first_line_episode,
+            recent_rewards=recent_rewards,
+            recent_steps=recent_steps,
+            recent_lines=recent_lines,
+            recent_holes=recent_holes,
+            recent_columns=recent_columns,
+            recent_completable_rows=recent_completable_rows,
+            recent_clean_rows=recent_clean_rows,
+            reward_shaper=reward_shaper,
+            agent=agent,
+            logger=logger
+        )
+
+        # Add interruption note if applicable
+        if is_interrupted:
+            debug_summary = f"⚠️  TRAINING INTERRUPTED AT EPISODE {current_episode}\n\n" + debug_summary
+
+        # Save to file
+        debug_path = logger.experiment_dir / "DEBUG_SUMMARY.txt"
+        with open(debug_path, 'w') as f:
+            f.write(debug_summary)
+
+        print(f"\n📊 Debug summary saved: {debug_path}")
+        return debug_path
+    except Exception as e:
+        print(f"\n⚠️  Error saving debug summary: {e}")
+        return None
 
 
 def parse_args():
@@ -160,6 +524,55 @@ def train(args):
     recent_completable_rows = []
     recent_clean_rows = []
 
+    # Setup signal handler for graceful Ctrl+C shutdown
+    def signal_handler(sig, frame):
+        global _training_interrupted
+        _training_interrupted = True
+        print("\n\n" + "="*80)
+        print("⚠️  TRAINING INTERRUPTED (Ctrl+C)")
+        print("="*80)
+        print("Saving progress and generating debug summary...")
+
+        current_time = time.time() - start_time
+        current_episode = episode if 'episode' in locals() else start_episode
+
+        # Save checkpoint
+        try:
+            agent.save_checkpoint(current_episode, MODEL_DIR)
+            logger.save_logs()
+            logger.plot_progress()
+            print("✅ Checkpoint and logs saved")
+        except Exception as e:
+            print(f"⚠️  Error saving checkpoint: {e}")
+
+        # Generate debug summary
+        save_debug_summary(
+            logger=logger,
+            args=args,
+            start_episode=start_episode,
+            current_episode=current_episode,
+            training_time=current_time,
+            lines_cleared_total=lines_cleared_total,
+            first_line_episode=first_line_episode,
+            recent_rewards=recent_rewards,
+            recent_steps=recent_steps,
+            recent_lines=recent_lines,
+            recent_holes=recent_holes,
+            recent_columns=recent_columns,
+            recent_completable_rows=recent_completable_rows,
+            recent_clean_rows=recent_clean_rows,
+            reward_shaper=reward_shaper,
+            agent=agent,
+            is_interrupted=True
+        )
+
+        print("\n✅ Training interrupted gracefully. You can resume with --resume flag.")
+        print("="*80)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    print("📋 Ctrl+C handler registered (will save progress before exit)")
+
     print(f"\n🚀 Starting improved progressive training")
     print(f"Episodes: {start_episode + 1} to {args.episodes}")
     print(f"Initial epsilon: {agent.epsilon:.3f}")
@@ -169,8 +582,16 @@ def train(args):
     # Track previous stage for transition detection
     previous_stage = reward_shaper.get_current_stage()
 
+    # Calculate 50% checkpoint
+    total_episodes_to_train = args.episodes - start_episode
+    halfway_episode = start_episode + (total_episodes_to_train // 2)
+    summary_generated_at_50 = False
+
     # MAIN TRAINING LOOP
     for episode in range(start_episode, args.episodes):
+        # Check for interruption
+        if _training_interrupted:
+            break
         # Update reward shaper with current episode (CRITICAL!)
         reward_shaper.update_episode(episode)
         current_stage = reward_shaper.get_current_stage()
@@ -325,13 +746,18 @@ def train(args):
             avg_completable = np.mean(recent_completable_rows) if recent_completable_rows else 0
             avg_clean = np.mean(recent_clean_rows) if recent_clean_rows else 0
 
-            print(f"Ep {episode+1:4d} | "
+            # Detailed scoring line with all metrics
+            print(f"Ep {episode+1:5d} | "
                   f"Stage: {current_stage:20s} | "
-                  f"Steps: {episode_steps:3d} (avg {avg_steps:.1f}) | "
-                  f"Holes: {holes:3d} (avg {avg_holes:.1f}) | "
+                  f"R: {episode_reward:7.1f} (avg {avg_reward:6.1f}) | "
+                  f"Steps: {episode_steps:3d} (avg {avg_steps:5.1f}) | "
+                  f"Lines: {lines_this_episode} (tot {lines_cleared_total:4d}, avg {avg_lines:.2f}) | "
+                  f"Holes: {holes:3d} (avg {avg_holes:4.1f}) | "
                   f"Cols: {columns_used:2d}/10 (avg {avg_cols:.1f}) | "
                   f"Compl: {completable_rows:2d} (avg {avg_completable:.1f}) | "
-                  f"Lines: {lines_this_episode} | "
+                  f"Clean: {clean_rows:2d} (avg {avg_clean:.1f}) | "
+                  f"H: {max_height:2d} | "
+                  f"B: {bumpiness:4.1f} | "
                   f"ε: {agent.epsilon:.3f}")
 
         # Save checkpoint periodically
@@ -341,6 +767,34 @@ def train(args):
             logger.plot_progress()
             print(f"💾 Checkpoint saved at episode {episode + 1}")
 
+        # Generate debug summary at 50% progress
+        if not summary_generated_at_50 and episode + 1 >= halfway_episode:
+            summary_generated_at_50 = True
+            current_time = time.time() - start_time
+            print(f"\n{'='*80}")
+            print(f"📊 HALFWAY CHECKPOINT - Episode {episode + 1}/{args.episodes} (50%)")
+            print(f"{'='*80}")
+            save_debug_summary(
+                logger=logger,
+                args=args,
+                start_episode=start_episode,
+                current_episode=episode + 1,
+                training_time=current_time,
+                lines_cleared_total=lines_cleared_total,
+                first_line_episode=first_line_episode,
+                recent_rewards=recent_rewards,
+                recent_steps=recent_steps,
+                recent_lines=recent_lines,
+                recent_holes=recent_holes,
+                recent_columns=recent_columns,
+                recent_completable_rows=recent_completable_rows,
+                recent_clean_rows=recent_clean_rows,
+                reward_shaper=reward_shaper,
+                agent=agent,
+                is_interrupted=False
+            )
+            print(f"{'='*80}\n")
+
     # Training complete
     training_time = time.time() - start_time
     env.close()
@@ -349,6 +803,27 @@ def train(args):
     agent.save_checkpoint(args.episodes, MODEL_DIR)
     logger.save_logs()
     logger.plot_progress()
+
+    # Generate final comprehensive debug summary
+    save_debug_summary(
+        logger=logger,
+        args=args,
+        start_episode=start_episode,
+        current_episode=args.episodes,
+        training_time=training_time,
+        lines_cleared_total=lines_cleared_total,
+        first_line_episode=first_line_episode,
+        recent_rewards=recent_rewards,
+        recent_steps=recent_steps,
+        recent_lines=recent_lines,
+        recent_holes=recent_holes,
+        recent_columns=recent_columns,
+        recent_completable_rows=recent_completable_rows,
+        recent_clean_rows=recent_clean_rows,
+        reward_shaper=reward_shaper,
+        agent=agent,
+        is_interrupted=False
+    )
 
     # Print final summary
     print(f"\n" + "="*80)

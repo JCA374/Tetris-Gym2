@@ -10,12 +10,13 @@ class DQN(nn.Module):
     Supports both image observations and feature vector observations
     """
 
-    def __init__(self, obs_space, action_space):
+    def __init__(self, obs_space, action_space, is_target=False):
         super(DQN, self).__init__()
 
         self.obs_space = obs_space
         self.action_space = action_space
         self.n_actions = action_space.n
+        self.is_target = is_target
 
         # Determine input type based on observation space
         if len(obs_space.shape) == 3:  # Image observation (H, W, C)
@@ -47,8 +48,9 @@ class DQN(nn.Module):
         # Dropout for regularization
         self.dropout = nn.Dropout(0.3)
 
-        print(
-            f"Initialized CNN-DQN: {conv_out_size} -> 512 -> 256 -> {self.n_actions}")
+        if not self.is_target:
+            print(
+                f"Initialized CNN-DQN: {conv_out_size} -> 512 -> 256 -> {self.n_actions}")
 
     def _init_fc_network(self, obs_space):
         """Initialize fully connected network for feature vector observations"""
@@ -64,8 +66,9 @@ class DQN(nn.Module):
         # Dropout for regularization
         self.dropout = nn.Dropout(0.3)
 
-        print(
-            f"Initialized FC-DQN: {input_size} -> 512 -> 256 -> 128 -> {self.n_actions}")
+        if not self.is_target:
+            print(
+                f"Initialized FC-DQN: {input_size} -> 512 -> 256 -> 128 -> {self.n_actions}")
 
     def _get_conv_output_size(self, shape):
         """Calculate the output size of convolutional layers"""
@@ -135,12 +138,13 @@ class DuelingDQN(nn.Module):
     Particularly useful for Tetris where not all actions may be equally important
     """
 
-    def __init__(self, obs_space, action_space):
+    def __init__(self, obs_space, action_space, is_target=False):
         super(DuelingDQN, self).__init__()
 
         self.obs_space = obs_space
         self.action_space = action_space
         self.n_actions = action_space.n
+        self.is_target = is_target
 
         if len(obs_space.shape) == 3:  # Image observation
             self._init_conv_features(obs_space)
@@ -163,8 +167,9 @@ class DuelingDQN(nn.Module):
             nn.Linear(256, self.n_actions)
         )
 
-        print(
-            f"Initialized Dueling DQN with {self.feature_size} features -> Value + {self.n_actions} Advantages")
+        if not self.is_target:
+            print(
+                f"Initialized Dueling DQN with {self.feature_size} features -> Value + {self.n_actions} Advantages")
 
     def _init_conv_features(self, obs_space):
         """Initialize convolutional feature extractor"""
@@ -227,22 +232,23 @@ class DuelingDQN(nn.Module):
         return q_values
 
 
-def create_model(obs_space, action_space, model_type="dqn"):
+def create_model(obs_space, action_space, model_type="dqn", is_target=False):
     """
     Factory function to create appropriate model based on requirements
-    
+
     Args:
         obs_space: Environment observation space
         action_space: Environment action space
         model_type: "dqn" or "dueling_dqn"
-    
+        is_target: If True, suppresses initialization message (for target network)
+
     Returns:
         Initialized model
     """
     if model_type.lower() == "dueling_dqn":
-        return DuelingDQN(obs_space, action_space)
+        return DuelingDQN(obs_space, action_space, is_target=is_target)
     else:
-        return DQN(obs_space, action_space)
+        return DQN(obs_space, action_space, is_target=is_target)
 
 
 # Model testing function

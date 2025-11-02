@@ -64,9 +64,9 @@ class Agent:
             
         # Networks
         self.q_network = create_model(
-            obs_space, action_space, model_type).to(self.device)
+            obs_space, action_space, model_type, is_target=False).to(self.device)
         self.target_network = create_model(
-            obs_space, action_space, model_type).to(self.device)
+            obs_space, action_space, model_type, is_target=True).to(self.device)
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=lr)
 
         # Initialize target network
