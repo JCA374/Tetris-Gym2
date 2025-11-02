@@ -45,8 +45,8 @@ class DQN(nn.Module):
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, self.n_actions)
 
-        # Dropout for regularization
-        self.dropout = nn.Dropout(0.3)
+        # Dropout for regularization (REDUCED from 0.3 to 0.1 for RL)
+        self.dropout = nn.Dropout(0.1)
 
         if not self.is_target:
             print(
@@ -63,8 +63,8 @@ class DQN(nn.Module):
         self.fc3 = nn.Linear(256, 128)
         self.fc4 = nn.Linear(128, self.n_actions)
 
-        # Dropout for regularization
-        self.dropout = nn.Dropout(0.3)
+        # Dropout for regularization (REDUCED from 0.3 to 0.1 for RL)
+        self.dropout = nn.Dropout(0.1)
 
         if not self.is_target:
             print(
@@ -197,10 +197,10 @@ class DuelingDQN(nn.Module):
         self.features = nn.Sequential(
             nn.Linear(input_size, 512),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.1),  # REDUCED from 0.3 to 0.1 for RL
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Dropout(0.3)
+            nn.Dropout(0.1)   # REDUCED from 0.3 to 0.1 for RL
         )
 
         self.feature_size = 256

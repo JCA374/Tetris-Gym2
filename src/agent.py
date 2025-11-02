@@ -221,6 +221,7 @@ class Agent:
 
         if do_exploit:
             # Greedy: argmax Q
+            self.q_network.eval()  # CRITICAL: Turn OFF dropout for inference
             with torch.no_grad():
                 state_tensor = self._preprocess_state(state)
                 q_values = self.q_network(state_tensor)
@@ -303,6 +304,9 @@ class Agent:
         """Learn from replay buffer (epsilon decay removed from here)"""
         if len(self.memory) < self.batch_size:
             return None
+
+        # CRITICAL: Turn ON dropout for training
+        self.q_network.train()
 
         batch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
