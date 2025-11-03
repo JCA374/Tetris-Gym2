@@ -36,6 +36,7 @@ class ImprovedProgressiveRewardShaper:
         self.total_steps = 0
         self.stage_transitions = []
         self.metrics_history = []
+        self.prev_holes = None  # Track holes for reduction bonus
         
     def get_current_stage(self) -> str:
         """Get current curriculum stage based on episode count"""
@@ -269,11 +270,18 @@ class ImprovedProgressiveRewardShaper:
         # IMPROVED: VERY strong hole penalty - force clean play
         shaped -= 3.5 * metrics['holes']  # INCREASED from 2.0
 
+        # NEW: Reward for reducing holes from previous step (PDF Page 2)
+        if self.prev_holes is not None:
+            holes_reduced = self.prev_holes - metrics['holes']
+            if holes_reduced > 0:
+                shaped += 25.0 * holes_reduced  # +25 per hole filled!
+        self.prev_holes = metrics['holes']
+
         # CRITICAL: Center-stacking detection and penalty
         shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
 
         # Strong bonus for completable rows
-        shaped += metrics['completable_rows'] * 15.0  # INCREASED from 12.0
+        shaped += metrics['completable_rows'] * 30.0  # DOUBLED from 15.0 (was 12.0)
 
         # Height and structure
         shaped -= 0.06 * metrics['aggregate_height']
@@ -332,15 +340,15 @@ class ImprovedProgressiveRewardShaper:
             shaped += efficiency * 100.0
 
         if done:
-            # IMPROVED: Scaled death penalty based on board quality (PDF recommendation: -200 to -300)
-            if metrics['holes'] > 50:
-                shaped -= 300.0  # HUGE penalty for dying with terrible board
+            # IMPROVED: Strengthened death penalty (PDF Page 4 rec: -200 baseline)
+            if metrics['holes'] > 40:
+                shaped -= 500.0  # MASSIVE penalty for dying with messy board (was -300)
             elif metrics['holes'] > 30:
-                shaped -= 200.0  # Heavy penalty for dying with bad board
+                shaped -= 350.0  # Heavy penalty for dying with bad board (was -200)
             else:
-                shaped -= 100.0  # Standard penalty for clean death
+                shaped -= 200.0  # PDF baseline for clean death (was -100)
 
-        return float(np.clip(shaped, -500.0, 800.0))  # Increased negative clip range
+        return float(np.clip(shaped, -1000.0, 1000.0))  # Allow stronger penalties and rewards
     
     def calculate_metrics(self, board: np.ndarray, info: Dict) -> Dict[str, Any]:
         """Calculate all metrics needed for reward shaping"""
@@ -485,7 +493,7 @@ class ImprovedProgressiveRewardShaper:
 
     def reset(self):
         """Reset metrics for new episode"""
-        pass  # Keep history across episodes
+        self.prev_holes = None  # Reset hole tracking for new episode
     
     def update_episode(self, episode: int):
         """Update episode count and check for stage transitions"""
