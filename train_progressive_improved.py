@@ -419,6 +419,10 @@ def parse_args():
                         help='Use complete 4-channel vision (REQUIRED)')
     parser.add_argument('--use_cnn', action='store_true', default=True,
                         help='Use CNN processing')
+    parser.add_argument('--use_feature_channels', action='store_true', default=True,
+                        help='Use 8-channel hybrid mode (visual + features) vs 4-channel (visual only)')
+    parser.add_argument('--no_feature_channels', dest='use_feature_channels', action='store_false',
+                        help='Disable feature channels (use 4-channel visual-only mode)')
 
     # Epsilon settings for curriculum learning
     parser.add_argument('--epsilon_start', type=float, default=1.0,
@@ -472,17 +476,22 @@ def train(args):
     # Create environment
     env = make_env(
         use_complete_vision=args.use_complete_vision,
-        use_cnn=args.use_cnn
+        use_cnn=args.use_cnn,
+        use_feature_channels=args.use_feature_channels
     )
     print(f"✅ Environment created")
     print(f"   Observation space: {env.observation_space}")
 
     if len(env.observation_space.shape) == 3:
         channels = env.observation_space.shape[-1]
-        if channels == 4:
-            print(f"   ✅ 4-channel complete vision confirmed!")
+        if channels == 8 and args.use_feature_channels:
+            print(f"   ✅ 8-channel HYBRID mode confirmed (visual + features)!")
+        elif channels == 4 and not args.use_feature_channels:
+            print(f"   ✅ 4-channel VISUAL-ONLY mode confirmed!")
+        elif channels == 4 and args.use_feature_channels:
+            print(f"   ⚠️  Expected 8 channels but got 4 - features may not be enabled!")
         else:
-            print(f"   ⚠️  Only {channels} channels - may be missing information!")
+            print(f"   ⚠️  Unexpected channel count: {channels}")
 
     # Create improved progressive reward shaper
     reward_shaper = ImprovedProgressiveRewardShaper()
