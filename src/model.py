@@ -32,8 +32,8 @@ class DQN(nn.Module):
         self.network_type = "conv"
         h, w, c = obs_space.shape
 
-        # Convolutional layers
-        self.conv1 = nn.Conv2d(c, 32, kernel_size=8, stride=4, padding=2)
+        # Convolutional layers tuned for 20x10 boards (preserve hole detail)
+        self.conv1 = nn.Conv2d(c, 32, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
 
@@ -177,17 +177,18 @@ class DuelingDQN(nn.Module):
         h, w, c = obs_space.shape
 
         self.features = nn.Sequential(
-            nn.Conv2d(c, 32, kernel_size=8, stride=4, padding=2),
+            nn.Conv2d(c, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            # Adaptive pooling for consistent output size
-            nn.AdaptiveAvgPool2d((7, 7))
+            nn.ReLU()
         )
 
-        self.feature_size = 64 * 7 * 7
+        with torch.no_grad():
+            dummy = torch.zeros(1, c, h, w)
+            feature_map = self.features(dummy)
+            self.feature_size = feature_map.view(1, -1).size(1)
 
     def _init_fc_features(self, obs_space):
         """Initialize fully connected feature extractor"""

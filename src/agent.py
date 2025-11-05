@@ -18,9 +18,9 @@ class Agent:
 
     def __init__(self, obs_space, action_space, lr=1e-4, gamma=0.99,
                  epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
-                 memory_size=10000, batch_size=32, target_update=1000,
-                 model_type="dqn", reward_shaping="none", shaping_config=None,
-                 max_episodes=25000):
+                 memory_size=200000, batch_size=32, min_memory_size=5000,
+                 target_update=1000, model_type="dqn", reward_shaping="none",
+                 shaping_config=None, max_episodes=25000):
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -38,6 +38,7 @@ class Agent:
         self.batch_size = batch_size
         self.target_update = target_update
         self.max_episodes = max_episodes
+        self.min_buffer_size = max(batch_size, min_memory_size)
 
         # 🔥 CALCULATE PROPER EPSILON DECAY FOR LONG TRAINING
         self.epsilon_decay_method = "adaptive"  # or "exponential", "linear", "step"
@@ -74,6 +75,7 @@ class Agent:
 
         # Replay buffer
         self.memory = deque(maxlen=memory_size)
+        print(f"Replay buffer capacity: {memory_size} | Warmup before learning: {self.min_buffer_size}")
 
         # Reward shaping
         self.reward_shaping_type = reward_shaping
@@ -92,50 +94,46 @@ class Agent:
     def _create_adaptive_schedule(self, max_episodes):
         """Create adaptive epsilon schedule optimized for Tetris learning"""
         schedule = []
-        
-        # Phase 1: High exploration (0-20% of episodes)
-        # Need to discover basic line clearing
-        phase1_end = int(0.2 * max_episodes)  # First 5,000 episodes
+
+        # Phase 1: High exploration (0-35% of episodes)
+        phase1_end = int(0.35 * max_episodes)
         schedule.append({
             'start_episode': 0,
-            'end_episode': phase1_end,
+            'end_episode': max(1, phase1_end),
             'start_epsilon': 1.0,
-            'end_epsilon': 0.3,
-            'description': 'Discovery phase - find line clearing'
+            'end_epsilon': 0.4,
+            'description': 'Discovery phase - learn survival & basic clears'
         })
-        
-        # Phase 2: Medium exploration (20-60% of episodes) 
-        # Learn strategic patterns
-        phase2_end = int(0.6 * max_episodes)  # Episodes 5,000-15,000
+
+        # Phase 2: Medium exploration (35-70%)
+        phase2_end = int(0.70 * max_episodes)
         schedule.append({
-            'start_episode': phase1_end,
-            'end_episode': phase2_end,
-            'start_epsilon': 0.3,
-            'end_epsilon': 0.1,
-            'description': 'Strategy phase - learn patterns'
+            'start_episode': max(1, phase1_end),
+            'end_episode': max(phase1_end + 1, phase2_end),
+            'start_epsilon': 0.4,
+            'end_epsilon': 0.18,
+            'description': 'Pattern building phase - encourage diversity'
         })
-        
-        # Phase 3: Low exploration (60-90% of episodes)
-        # Refine advanced techniques
-        phase3_end = int(0.9 * max_episodes)  # Episodes 15,000-22,500
+
+        # Phase 3: Focused refinement (70-90%)
+        phase3_end = int(0.90 * max_episodes)
         schedule.append({
-            'start_episode': phase2_end,
-            'end_episode': phase3_end,
-            'start_epsilon': 0.1,
-            'end_epsilon': 0.03,
-            'description': 'Refinement phase - advanced play'
+            'start_episode': max(phase2_end, phase1_end + 1),
+            'end_episode': max(phase2_end + 1, phase3_end),
+            'start_epsilon': 0.18,
+            'end_epsilon': 0.08,
+            'description': 'Refinement phase - stabilize clean play'
         })
-        
-        # Phase 4: Minimal exploration (90-100% of episodes)
-        # Final optimization
+
+        # Phase 4: Final optimization (90-100%)
         schedule.append({
-            'start_episode': phase3_end,
+            'start_episode': max(phase3_end, phase2_end + 1),
             'end_episode': max_episodes,
-            'start_epsilon': 0.03,
-            'end_epsilon': 0.01,
-            'description': 'Optimization phase - master play'
+            'start_epsilon': 0.08,
+            'end_epsilon': max(self.epsilon_end, 0.02),
+            'description': 'Optimization phase - exploit learned policies'
         })
-        
+
         return schedule
 
     def _get_scheduled_epsilon(self, episode):
@@ -233,28 +231,28 @@ class Agent:
         #   LEFT=0, RIGHT=1, DOWN=2, ROTATE_CW=3, ROTATE_CCW=4,
         #   HARD_DROP=5, SWAP=6, NOOP=7
         #
-        # Distribution (higher LEFT to encourage exploring left columns):
-        #   LEFT        (0): 25%   (increased from 17.5%)
-        #   RIGHT       (1): 15%
-        #   DOWN        (2): 10%
-        #   ROTATE_CW   (3): 10%
-        #   ROTATE_CCW  (4): 10%
-        #   HARD_DROP   (5): 20%
-        #   SWAP        (6): 10%
+        # Distribution (bias toward horizontal movement + soft placement control):
+        #   LEFT        (0): 22%
+        #   RIGHT       (1): 22%
+        #   DOWN        (2): 15%
+        #   ROTATE_CW   (3): 13%
+        #   ROTATE_CCW  (4): 13%
+        #   HARD_DROP   (5): 10%
+        #   SWAP        (6): 5%
         #   NOOP        (7): 0%    (disabled during exploration)
         # ------------------------------------------------------------------
         r = np.random.rand()
-        if r < 0.25:
+        if r < 0.22:
             return 0  # LEFT (action 0)
-        elif r < 0.40:
+        elif r < 0.44:
             return 1  # RIGHT (action 1)
-        elif r < 0.50:
+        elif r < 0.59:
             return 2  # DOWN (action 2)
-        elif r < 0.60:
+        elif r < 0.72:
             return 3  # ROTATE_CW (action 3)
-        elif r < 0.70:
+        elif r < 0.85:
             return 4  # ROTATE_CCW (action 4)
-        elif r < 0.90:
+        elif r < 0.95:
             return 5  # HARD_DROP (action 5)
         else:
             return 6  # SWAP (action 6)
@@ -302,7 +300,7 @@ class Agent:
 
     def learn(self):
         """Learn from replay buffer (epsilon decay removed from here)"""
-        if len(self.memory) < self.batch_size:
+        if len(self.memory) < self.min_buffer_size:
             return None
 
         # CRITICAL: Turn ON dropout for training

@@ -38,13 +38,23 @@ def generate_debug_summary(args, start_episode, total_episodes, training_time,
     episodes_trained = total_episodes - start_episode
 
     # Calculate statistics
-    avg_reward = np.mean(recent_rewards) if recent_rewards else 0
-    avg_steps = np.mean(recent_steps) if recent_steps else 0
-    avg_lines = np.mean(recent_lines) if recent_lines else 0
-    avg_holes = np.mean(recent_holes) if recent_holes else 0
-    avg_cols = np.mean(recent_columns) if recent_columns else 0
-    avg_completable = np.mean(recent_completable_rows) if recent_completable_rows else 0
-    avg_clean = np.mean(recent_clean_rows) if recent_clean_rows else 0
+    recent_tail = lambda data: data[-100:] if len(data) >= 100 else data
+
+    tail_rewards = recent_tail(recent_rewards)
+    tail_steps = recent_tail(recent_steps)
+    tail_lines = recent_tail(recent_lines)
+    tail_holes = recent_tail(recent_holes)
+    tail_cols = recent_tail(recent_columns)
+    tail_completable = recent_tail(recent_completable_rows)
+    tail_clean = recent_tail(recent_clean_rows)
+
+    avg_reward = np.mean(tail_rewards) if tail_rewards else 0
+    avg_steps = np.mean(tail_steps) if tail_steps else 0
+    avg_lines = np.mean(tail_lines) if tail_lines else 0
+    avg_holes = np.mean(tail_holes) if tail_holes else 0
+    avg_cols = np.mean(tail_cols) if tail_cols else 0
+    avg_completable = np.mean(tail_completable) if tail_completable else 0
+    avg_clean = np.mean(tail_clean) if tail_clean else 0
 
     lines_per_episode = lines_cleared_total / episodes_trained if episodes_trained > 0 else 0
 
@@ -485,6 +495,8 @@ def train(args):
         lr=args.lr,
         gamma=args.gamma,
         batch_size=args.batch_size,
+        memory_size=200000,
+        min_memory_size=20000,
         model_type=args.model_type,
         epsilon_start=args.epsilon_start,
         epsilon_end=args.epsilon_end,
@@ -523,6 +535,8 @@ def train(args):
     recent_columns = []
     recent_completable_rows = []
     recent_clean_rows = []
+    RECENT_WINDOW = 200
+    CURRICULUM_GATE_WINDOW = 150
 
     # Setup signal handler for graceful Ctrl+C shutdown
     def signal_handler(sig, frame):
@@ -592,6 +606,23 @@ def train(args):
         # Check for interruption
         if _training_interrupted:
             break
+
+        gate_holes = gate_completable = gate_clean = None
+        if recent_holes:
+            hole_window = recent_holes[-CURRICULUM_GATE_WINDOW:] if len(recent_holes) >= CURRICULUM_GATE_WINDOW else recent_holes
+            gate_holes = float(np.mean(hole_window))
+        if recent_completable_rows:
+            compl_window = recent_completable_rows[-CURRICULUM_GATE_WINDOW:] if len(recent_completable_rows) >= CURRICULUM_GATE_WINDOW else recent_completable_rows
+            gate_completable = float(np.mean(compl_window))
+        if recent_clean_rows:
+            clean_window = recent_clean_rows[-CURRICULUM_GATE_WINDOW:] if len(recent_clean_rows) >= CURRICULUM_GATE_WINDOW else recent_clean_rows
+            gate_clean = float(np.mean(clean_window))
+
+        reward_shaper.update_curriculum_metrics(
+            hole_avg=gate_holes,
+            completable_avg=gate_completable,
+            clean_avg=gate_clean
+        )
         # Update reward shaper with current episode (CRITICAL!)
         reward_shaper.update_episode(episode)
         current_stage = reward_shaper.get_current_stage()
@@ -621,6 +652,7 @@ def train(args):
         # Track metrics within episode
         final_board = None
         final_metrics = None
+        episode_component_totals = {}
 
         while not done:
             # Select action
@@ -643,11 +675,18 @@ def train(args):
             # Apply IMPROVED PROGRESSIVE reward shaping
             shaped_reward = reward_shaper.calculate_reward(obs, action, raw_reward, done, info)
 
+            components = getattr(reward_shaper, "last_reward_components", None)
+            if components:
+                for key, value in components.items():
+                    if key in ('stage',):
+                        continue
+                    episode_component_totals[key] = episode_component_totals.get(key, 0.0) + float(value)
+
             # Store experience with shaped reward
             agent.remember(obs, action, shaped_reward, next_obs, done, info, raw_reward)
 
             # Learn every 4 steps
-            if episode_steps % 4 == 0 and len(agent.memory) >= agent.batch_size:
+            if episode_steps % 4 == 0 and len(agent.memory) >= agent.min_buffer_size:
                 agent.learn()
 
             # Update metrics
@@ -696,7 +735,7 @@ def train(args):
         recent_completable_rows.append(completable_rows)
         recent_clean_rows.append(clean_rows)
 
-        if len(recent_rewards) > 100:
+        if len(recent_rewards) > RECENT_WINDOW:
             recent_rewards.pop(0)
             recent_lines.pop(0)
             recent_steps.pop(0)
@@ -704,6 +743,8 @@ def train(args):
             recent_columns.pop(0)
             recent_completable_rows.pop(0)
             recent_clean_rows.pop(0)
+
+        component_fields = {f"rc_{k}": v for k, v in episode_component_totals.items()}
 
         # Log episode data
         logger.log_episode(
@@ -719,7 +760,11 @@ def train(args):
             holes=holes,
             columns_used=columns_used,
             completable_rows=completable_rows,
-            clean_rows=clean_rows
+            clean_rows=clean_rows,
+            curriculum_gate_holes=gate_holes if gate_holes is not None else '',
+            curriculum_gate_completable=gate_completable if gate_completable is not None else '',
+            curriculum_gate_clean=gate_clean if gate_clean is not None else '',
+            **component_fields
         )
 
         # Log board state periodically (SAME AS ORIGINAL)

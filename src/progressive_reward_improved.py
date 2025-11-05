@@ -36,6 +36,11 @@ class ImprovedProgressiveRewardShaper:
         self.total_steps = 0
         self.stage_transitions = []
         self.metrics_history = []
+        self.recent_hole_avg = None
+        self.recent_completable_avg = None
+        self.recent_clean_avg = None
+        self.line_stage_unlocked = False
+        self.last_reward_components = {}
         self.prev_holes = None  # Track holes for reduction bonus
         
     def get_current_stage(self) -> str:
@@ -49,12 +54,56 @@ class ImprovedProgressiveRewardShaper:
         elif self.episode_count < 5000:
             return "clean_spreading"
         else:
+            if not self.line_stage_unlocked and not self._ready_for_line_stage():
+                return "clean_spreading"
+            self.line_stage_unlocked = True
             return "line_clearing_focus"
+
+    def update_curriculum_metrics(self, hole_avg=None, completable_avg=None, clean_avg=None):
+        """
+        Update rolling curriculum metrics so we can gate transitions based on performance.
+        Called by the training loop once per episode with rolling averages.
+        """
+        self.recent_hole_avg = hole_avg
+        self.recent_completable_avg = completable_avg
+        self.recent_clean_avg = clean_avg
+
+        if self.line_stage_unlocked:
+            return
+
+        if self._ready_for_line_stage():
+            self.line_stage_unlocked = True
+            print("\n✅ Curriculum gate passed: board cleanliness sufficient for line_clearing_focus stage\n")
+
+    def _ready_for_line_stage(self) -> bool:
+        """
+        Determine whether the agent has earned the right to enter line-clearing focus.
+        Requirements (rolling average over recent episodes):
+          - holes <= 25
+          - completable rows >= 0.5
+          - clean rows >= 5 (optional softer gate; ignored if metric unavailable)
+        """
+        if self.recent_hole_avg is None or self.recent_completable_avg is None:
+            return False
+
+        if self.recent_hole_avg > 25:
+            return False
+
+        if self.recent_completable_avg < 0.5:
+            return False
+
+        if self.recent_clean_avg is not None and self.recent_clean_avg < 5.0:
+            return False
+
+        return True
     
     def calculate_reward(self, obs: np.ndarray, action: int,
                         base_reward: float, done: bool,
                         info: Dict[str, Any]) -> float:
         """Calculate shaped reward based on current curriculum stage"""
+
+        # Reset per-step component log
+        self.last_reward_components = {}
 
         board = extract_board_from_obs(obs)
         metrics = self.calculate_metrics(board, info)
@@ -66,7 +115,9 @@ class ImprovedProgressiveRewardShaper:
             'stage': stage,
             'holes': metrics['holes'],
             'columns_used': metrics['columns_used'],
-            'lines_cleared': metrics['lines_cleared']
+            'lines_cleared': metrics['lines_cleared'],
+            'completable_rows': metrics['completable_rows'],
+            'clean_rows': metrics['clean_rows']
         })
         
         # Apply stage-specific reward shaping
@@ -80,6 +131,15 @@ class ImprovedProgressiveRewardShaper:
             return self._clean_spreading_reward(base_reward, metrics, done, info)
         else:  # line_clearing_focus
             return self._line_clearing_reward(base_reward, metrics, done, info)
+
+    def _record_components(self, stage: str, components: Dict[str, float],
+                           pre_clip: float, post_clip: float):
+        """Store latest reward component breakdown for diagnostics/logging."""
+        record = dict(components)
+        record['stage'] = stage
+        record['pre_clip_reward'] = pre_clip
+        record['clip_delta'] = post_clip - pre_clip
+        self.last_reward_components = record
     
     def _foundation_reward(self, base_reward: float, metrics: Dict, 
                            done: bool, info: Dict) -> float:
@@ -193,71 +253,85 @@ class ImprovedProgressiveRewardShaper:
         Stage 4: Clean Spreading (Episodes 2000-5000)
         Focus: Master spreading without creating holes
         """
-        shaped = float(base_reward) * 100.0
+        components: Dict[str, float] = {}
 
-        # IMPROVED: Stronger hole penalty to prevent swiss cheese towers
-        shaped -= 2.5 * metrics['holes']  # INCREASED from 1.5
+        base_component = float(base_reward) * 100.0
+        components['base'] = base_component
 
-        # CRITICAL: Center-stacking detection and penalty
-        shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
+        hole_penalty = -2.5 * metrics['holes']
+        components['hole_penalty'] = hole_penalty
 
-        # Bonus for rows that are almost complete (8-9 filled, no holes)
-        shaped += metrics['completable_rows'] * 10.0  # INCREASED from 8.0
+        center_penalty = metrics['center_stacking_penalty']
+        components['center_penalty'] = center_penalty
 
-        # Height and structure
-        shaped -= 0.05 * metrics['aggregate_height']
-        shaped -= 0.4 * metrics['bumpiness']
-        shaped -= 0.1 * metrics['wells']
+        completable_bonus = metrics['completable_rows'] * 10.0
+        components['completable_bonus'] = completable_bonus
 
-        # NEW: Explicit height penalty - discourage tall towers
+        structure_penalty = (
+            -0.05 * metrics['aggregate_height']
+            -0.4 * metrics['bumpiness']
+            -0.1 * metrics['wells']
+        )
+        components['structure_penalty'] = structure_penalty
+
         heights = metrics['column_heights']
         max_height = max(heights) if heights else 0
+        height_penalty = 0.0
         if max_height > 15:
-            shaped -= (max_height - 15) * 8.0  # -8 per row above 15
+            height_penalty = -(max_height - 15) * 8.0
+        components['height_penalty'] = height_penalty
 
-        # Strong spreading rewards (MASSIVELY INCREASED to fight center-stacking)
-        shaped += 50.0 * metrics['spread']  # DOUBLED from 25.0
-        shaped += metrics['columns_used'] * 12.0  # DOUBLED from 6.0
-        shaped -= metrics['outer_unused'] * 20.0  # INCREASED from 8.0
+        spread_bonus = 50.0 * metrics['spread']
+        columns_bonus = metrics['columns_used'] * 12.0
+        outer_penalty = -metrics['outer_unused'] * 20.0
+        height_std_penalty = -3.0 * metrics['height_std']
+        components['spread_bonus'] = spread_bonus
+        components['columns_bonus'] = columns_bonus
+        components['outer_penalty'] = outer_penalty
+        components['height_std_penalty'] = height_std_penalty
 
-        # Penalty for uneven heights
-        shaped -= 3.0 * metrics['height_std']
+        clean_rows_bonus = metrics['clean_rows'] * 5.0
+        components['clean_rows_bonus'] = clean_rows_bonus
 
-        # Clean rows bonus (balanced after fix)
-        shaped += metrics['clean_rows'] * 5.0  # REDUCED from 7.0 after clean_rows fix
-
-        # IMPROVED: Much more conditional survival bonus
+        steps = info.get('steps', 0)
         if metrics['holes'] < 15:
-            shaped += min(info.get('steps', 0) * 0.4, 30.0)  # Full bonus if very clean
+            survival_bonus = min(steps * 0.4, 30.0)
         elif metrics['holes'] < 30:
-            shaped += min(info.get('steps', 0) * 0.2, 15.0)  # Reduced if moderate holes
+            survival_bonus = min(steps * 0.2, 15.0)
         else:
-            shaped += 0  # NO bonus if 30+ holes
+            survival_bonus = 0.0
+        components['survival_bonus'] = survival_bonus
 
-        # Strong line clear bonuses - SCALED BY BOARD QUALITY
         lines = metrics['lines_cleared']
+        quality = 0.0
+        line_bonus = 0.0
         if lines > 0:
-            # Calculate board quality (0.3 = terrible, 1.0 = perfect)
             quality = max(0.3, 1.0 - (metrics['holes'] / 50.0) - (metrics['bumpiness'] / 100.0))
-
-            shaped += lines * 100.0 * quality  # Scale by quality!
+            line_bonus = lines * 100.0 * quality
             if lines == 2:
-                shaped += 30.0 * quality
+                line_bonus += 30.0 * quality
             elif lines == 3:
-                shaped += 60.0 * quality
-            elif lines == 4:  # Tetris
-                shaped += 200.0 * quality  # Clean boards get bigger rewards!
+                line_bonus += 60.0 * quality
+            elif lines == 4:
+                line_bonus += 200.0 * quality
+        components['line_bonus'] = line_bonus
+
+        shaped = sum(components.values())
 
         if done:
-            # Heavier penalty if dying with many holes (scaled for Stage 4)
             if metrics['holes'] > 40:
-                shaped -= 200.0  # Heavy penalty for terrible board
+                death_penalty = -200.0
             elif metrics['holes'] > 30:
-                shaped -= 150.0  # Moderate penalty
+                death_penalty = -150.0
             else:
-                shaped -= 75.0  # Standard penalty
+                death_penalty = -75.0
+            components['death_penalty'] = death_penalty
+            shaped += death_penalty
 
-        return float(np.clip(shaped, -400.0, 600.0))
+        pre_clip = shaped
+        clipped = float(np.clip(shaped, -400.0, 600.0))
+        self._record_components('clean_spreading', components, pre_clip, clipped)
+        return clipped
     
     def _line_clearing_reward(self, base_reward: float, metrics: Dict,
                              done: bool, info: Dict) -> float:
@@ -265,90 +339,107 @@ class ImprovedProgressiveRewardShaper:
         Stage 5: Line Clearing Focus (Episodes 5000+)
         Focus: Maximize line clears with clean, spread placement
         """
-        shaped = float(base_reward) * 100.0
+        components: Dict[str, float] = {}
 
-        # IMPROVED: VERY strong hole penalty - force clean play
-        shaped -= 3.5 * metrics['holes']  # INCREASED from 2.0
+        base_component = float(base_reward) * 100.0
+        components['base'] = base_component
 
-        # NEW: Reward for reducing holes from previous step (PDF Page 2)
+        holes = metrics['holes']
+        hole_penalty = -5.0 * holes
+        components['hole_penalty'] = hole_penalty
+
+        hole_reduction_bonus = 0.0
         if self.prev_holes is not None:
-            holes_reduced = self.prev_holes - metrics['holes']
+            holes_reduced = self.prev_holes - holes
             if holes_reduced > 0:
-                shaped += 25.0 * holes_reduced  # +25 per hole filled!
-        self.prev_holes = metrics['holes']
+                hole_reduction_bonus = 25.0 * holes_reduced
+        components['hole_reduction_bonus'] = hole_reduction_bonus
+        self.prev_holes = holes
 
-        # CRITICAL: Center-stacking detection and penalty
-        shaped += metrics['center_stacking_penalty']  # This is always ≤ 0
+        center_penalty = metrics['center_stacking_penalty']
+        components['center_penalty'] = center_penalty
 
-        # Strong bonus for completable rows
-        shaped += metrics['completable_rows'] * 30.0  # DOUBLED from 15.0 (was 12.0)
+        completable_bonus = metrics['completable_rows'] * 45.0
+        components['completable_bonus'] = completable_bonus
 
-        # Height and structure
-        shaped -= 0.06 * metrics['aggregate_height']
-        shaped -= 0.5 * metrics['bumpiness']
-        shaped -= 0.12 * metrics['wells']
+        structure_penalty = (
+            -0.06 * metrics['aggregate_height']
+            -0.5 * metrics['bumpiness']
+            -0.12 * metrics['wells']
+        )
+        components['structure_penalty'] = structure_penalty
 
-        # NEW: Explicit height penalty - strongly discourage tall towers
         heights = metrics['column_heights']
         max_height = max(heights) if heights else 0
+        height_penalty = 0.0
         if max_height > 15:
-            shaped -= (max_height - 15) * 12.0  # -12 per row above 15 (STRONG)
+            height_penalty += -(max_height - 15) * 12.0
         if max_height > 18:
-            shaped -= 50.0  # Extra penalty for being at the ceiling
+            height_penalty += -50.0
+        components['height_penalty'] = height_penalty
 
-        # Maintain spreading (MASSIVELY INCREASED to fight center-stacking)
-        shaped += 60.0 * metrics['spread']  # MASSIVELY INCREASED from 25.0
-        shaped += metrics['columns_used'] * 15.0  # MASSIVELY INCREASED from 6.0
-        shaped -= metrics['outer_unused'] * 30.0  # TRIPLED from 10.0
-        shaped -= 5.0 * metrics['height_std']  # Slightly increased
+        cleanliness_scale = 1.0
+        if holes > 20:
+            cleanliness_scale = max(0.0, 1.0 - (holes - 20) / 20.0)
+        spread_bonus = cleanliness_scale * 60.0 * metrics['spread']
+        columns_bonus = cleanliness_scale * metrics['columns_used'] * 15.0
+        outer_penalty = -metrics['outer_unused'] * 30.0
+        height_std_penalty = -5.0 * metrics['height_std']
+        components['spread_bonus'] = spread_bonus
+        components['columns_bonus'] = columns_bonus
+        components['outer_penalty'] = outer_penalty
+        components['height_std_penalty'] = height_std_penalty
 
-        # Clean placement is critical (balanced after clean_rows fix)
-        shaped += metrics['clean_rows'] * 6.0  # REDUCED from 12.0 after clean_rows fix
+        clean_rows_bonus = metrics['clean_rows'] * 6.0
+        components['clean_rows_bonus'] = clean_rows_bonus
 
-        # IMPROVED: VERY conditional survival bonus - only reward clean play
-        if metrics['holes'] < 10:
-            # Excellent - full bonus
-            shaped += min(info.get('steps', 0) * 0.5, 40.0)
-        elif metrics['holes'] < 20:
-            # Good - reduced bonus
-            shaped += min(info.get('steps', 0) * 0.3, 25.0)
-        elif metrics['holes'] < 30:
-            # Acceptable - minimal bonus
-            shaped += min(info.get('steps', 0) * 0.1, 10.0)
+        steps = info.get('steps', 0)
+        if holes < 8:
+            survival_bonus = min(steps * 0.5, 40.0)
+        elif holes < 15:
+            survival_bonus = min(steps * 0.3, 25.0)
+        elif holes < 20:
+            survival_bonus = min(steps * 0.1, 10.0)
         else:
-            # Too many holes - NO survival bonus
-            shaped += 0
+            survival_bonus = 0.0
+        components['survival_bonus'] = survival_bonus
 
-        # Massive line clear bonuses - SCALED BY BOARD QUALITY
         lines = metrics['lines_cleared']
+        quality = 0.0
+        line_bonus = 0.0
         if lines > 0:
-            # Calculate board quality (0.3 = terrible, 1.0 = perfect)
-            # Lower holes and bumpiness = higher quality = bigger reward
             quality = max(0.3, 1.0 - (metrics['holes'] / 50.0) - (metrics['bumpiness'] / 100.0))
-
-            shaped += lines * 150.0 * quality  # Scale base reward by quality!
+            line_bonus = lines * 150.0 * quality
             if lines == 2:
-                shaped += 50.0 * quality
+                line_bonus += 50.0 * quality
             elif lines == 3:
-                shaped += 100.0 * quality
-            elif lines == 4:  # Tetris
-                shaped += 400.0 * quality  # Only big bonus on clean boards!
+                line_bonus += 100.0 * quality
+            elif lines == 4:
+                line_bonus += 400.0 * quality
+        components['line_bonus'] = line_bonus
 
-        # Efficiency bonus for clearing lines with fewer pieces
+        efficiency_bonus = 0.0
         if lines > 0 and info.get('pieces_placed', 1) > 0:
             efficiency = lines / info.get('pieces_placed', 1)
-            shaped += efficiency * 100.0
+            efficiency_bonus = efficiency * 100.0
+        components['efficiency_bonus'] = efficiency_bonus
+
+        shaped = sum(components.values())
 
         if done:
-            # IMPROVED: Strengthened death penalty (PDF Page 4 rec: -200 baseline)
             if metrics['holes'] > 40:
-                shaped -= 500.0  # MASSIVE penalty for dying with messy board (was -300)
+                death_penalty = -500.0
             elif metrics['holes'] > 30:
-                shaped -= 350.0  # Heavy penalty for dying with bad board (was -200)
+                death_penalty = -350.0
             else:
-                shaped -= 200.0  # PDF baseline for clean death (was -100)
+                death_penalty = -200.0
+            components['death_penalty'] = death_penalty
+            shaped += death_penalty
 
-        return float(np.clip(shaped, -1000.0, 1000.0))  # Allow stronger penalties and rewards
+        pre_clip = shaped
+        clipped = float(np.clip(shaped, -1000.0, 1000.0))
+        self._record_components('line_clearing_focus', components, pre_clip, clipped)
+        return clipped
     
     def calculate_metrics(self, board: np.ndarray, info: Dict) -> Dict[str, Any]:
         """Calculate all metrics needed for reward shaping"""
