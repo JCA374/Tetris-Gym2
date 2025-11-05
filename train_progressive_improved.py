@@ -531,7 +531,9 @@ def train(args):
     recent_rewards = []
     recent_lines = []
     recent_steps = []
-    recent_holes = []
+    recent_holes = []  # Now tracks average holes during play
+    recent_holes_final = []  # NEW: Holes at game-over
+    recent_holes_min = []  # NEW: Minimum holes during play
     recent_columns = []
     recent_completable_rows = []
     recent_clean_rows = []
@@ -654,6 +656,13 @@ def train(args):
         final_metrics = None
         episode_component_totals = {}
 
+        # NEW: Track holes throughout episode (not just at game-over)
+        hole_samples = []  # Sample holes every 20 steps
+        hole_at_step_50 = None
+        hole_at_step_100 = None
+        hole_at_step_150 = None
+        min_holes = float('inf')  # Track best board state
+
         while not done:
             # Select action
             action = agent.select_action(obs)
@@ -693,6 +702,24 @@ def train(args):
             episode_reward += shaped_reward
             episode_steps += 1
 
+            # NEW: Sample holes during play (every 20 steps)
+            if episode_steps % 20 == 0:
+                current_board = extract_board_from_obs(obs)
+                current_holes = count_holes(current_board)
+                hole_samples.append(current_holes)
+                min_holes = min(min_holes, current_holes)
+
+            # NEW: Capture holes at specific checkpoints
+            if episode_steps == 50:
+                checkpoint_board = extract_board_from_obs(obs)
+                hole_at_step_50 = count_holes(checkpoint_board)
+            elif episode_steps == 100:
+                checkpoint_board = extract_board_from_obs(obs)
+                hole_at_step_100 = count_holes(checkpoint_board)
+            elif episode_steps == 150:
+                checkpoint_board = extract_board_from_obs(obs)
+                hole_at_step_150 = count_holes(checkpoint_board)
+
             # Track line clears
             lines = info.get('lines_cleared', 0)
             if lines > 0:
@@ -718,7 +745,7 @@ def train(args):
             final_metrics = reward_shaper.calculate_metrics(final_board, info)
 
         heights = final_metrics['column_heights']
-        holes = final_metrics['holes']
+        holes_final = final_metrics['holes']  # Renamed: holes at game-over
         bumpiness = final_metrics['bumpiness']
         columns_used = final_metrics['columns_used']
         completable_rows = final_metrics['completable_rows']
@@ -726,11 +753,18 @@ def train(args):
         max_height = max(heights) if heights else 0
         outer_unused = final_metrics['outer_unused']
 
+        # NEW: Calculate hole metrics from samples
+        holes_avg = np.mean(hole_samples) if hole_samples else holes_final
+        holes_min = min_holes if min_holes != float('inf') else holes_final
+        holes = holes_avg  # Use average for primary metric (backward compat)
+
         # Track recent performance
         recent_rewards.append(episode_reward)
         recent_lines.append(lines_this_episode)
         recent_steps.append(episode_steps)
-        recent_holes.append(holes)
+        recent_holes.append(holes)  # Average holes
+        recent_holes_final.append(holes_final)  # NEW: Final holes
+        recent_holes_min.append(holes_min)  # NEW: Min holes
         recent_columns.append(columns_used)
         recent_completable_rows.append(completable_rows)
         recent_clean_rows.append(clean_rows)
@@ -740,6 +774,8 @@ def train(args):
             recent_lines.pop(0)
             recent_steps.pop(0)
             recent_holes.pop(0)
+            recent_holes_final.pop(0)  # NEW
+            recent_holes_min.pop(0)  # NEW
             recent_columns.pop(0)
             recent_completable_rows.pop(0)
             recent_clean_rows.pop(0)
@@ -757,7 +793,12 @@ def train(args):
             total_lines=lines_cleared_total,
             shaped_reward_used=True,
             stage=current_stage,
-            holes=holes,
+            holes=holes,  # Average holes during play
+            holes_final=holes_final,  # NEW: Holes at game-over
+            holes_min=holes_min,  # NEW: Minimum holes
+            holes_at_step_50=hole_at_step_50 if hole_at_step_50 is not None else '',
+            holes_at_step_100=hole_at_step_100 if hole_at_step_100 is not None else '',
+            holes_at_step_150=hole_at_step_150 if hole_at_step_150 is not None else '',
             columns_used=columns_used,
             completable_rows=completable_rows,
             clean_rows=clean_rows,
@@ -787,17 +828,19 @@ def train(args):
             avg_lines = np.mean(recent_lines)
             avg_steps = np.mean(recent_steps)
             avg_holes = np.mean(recent_holes) if recent_holes else 0
+            avg_holes_final = np.mean(recent_holes_final) if recent_holes_final else 0  # NEW
+            avg_holes_min = np.mean(recent_holes_min) if recent_holes_min else 0  # NEW
             avg_cols = np.mean(recent_columns) if recent_columns else 0
             avg_completable = np.mean(recent_completable_rows) if recent_completable_rows else 0
             avg_clean = np.mean(recent_clean_rows) if recent_clean_rows else 0
 
-            # Detailed scoring line with all metrics
+            # Detailed scoring line with all metrics (NEW: shows avg/min/final holes)
             print(f"Ep {episode+1:5d} | "
                   f"Stage: {current_stage:20s} | "
                   f"R: {episode_reward:7.1f} (avg {avg_reward:6.1f}) | "
                   f"Steps: {episode_steps:3d} (avg {avg_steps:5.1f}) | "
                   f"Lines: {lines_this_episode} (tot {lines_cleared_total:4d}, avg {avg_lines:.2f}) | "
-                  f"Holes: {holes:3d} (avg {avg_holes:4.1f}) | "
+                  f"Holes: {holes:.1f} [min:{holes_min:.0f} final:{holes_final}] (avg {avg_holes:4.1f}/{avg_holes_min:.1f}/{avg_holes_final:.1f}) | "
                   f"Cols: {columns_used:2d}/10 (avg {avg_cols:.1f}) | "
                   f"Compl: {completable_rows:2d} (avg {avg_completable:.1f}) | "
                   f"Clean: {clean_rows:2d} (avg {avg_clean:.1f}) | "

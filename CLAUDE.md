@@ -208,10 +208,25 @@ Tetris Gymnasium v0.3.0 action mapping (from `config.py`):
 
 - `AGENTS.md` - Repository guidelines and conventions
 - `CRITICAL_FIXES_APPLIED.md` - Critical bug fixes (dropout, train/eval)
+- `HOLE_MEASUREMENT_FIX.md` - **CRITICAL**: How holes are measured (during play vs at game-over)
 - `14H_TRAINING_PLAN.md` - Long-term training strategy
 - `CENTER_STACKING_FIXES.md` - Solutions to column spreading problem
 
 ## Known Issues & Solutions
+
+**Issue: Hole metrics misleading (CRITICAL FIX - Nov 2025)**
+- **Problem**: Holes were only measured at game-over (worst possible moment)
+- **Example**: "48 holes" at step 204 after board filled up ≠ board quality during play
+- **Solution**: Now track average holes during play, minimum holes, and checkpoints
+- **New metrics**:
+  - `holes`: Average during play (sampled every 20 steps) - PRIMARY METRIC
+  - `holes_min`: Best board state achieved in episode
+  - `holes_final`: At game-over (for reference only)
+  - `holes_at_step_X`: Consistent checkpoints (50, 100, 150)
+- **Realistic goals**:
+  - Average holes during play: <15 (achievable)
+  - Final holes at game-over: <30-50 (depends on line clears)
+- **See**: `HOLE_MEASUREMENT_FIX.md` for complete details
 
 **Issue: Center stacking (agent only uses middle columns)**
 - Solution: Progressive reward shaping with column spread penalty
@@ -235,21 +250,35 @@ Tetris Gymnasium v0.3.0 action mapping (from `config.py`):
 ## Performance Expectations
 
 For 75,000 episode training (14-15 hours):
-- Episodes 0-500: Basic placement, ~20-40 steps/episode
-- Episodes 500-2000: Improved placement, ~100-150 steps/episode
-- Episodes 2000-12500: Column spreading mastered, ~175 steps/episode
-- Episodes 12500-30000: Hole reduction (43 → 20-25 holes)
-- Episodes 30000-50000: Line clearing emerges (0.5-1 lines/episode)
-- Episodes 50000-75000: Expert play (2-5 lines/episode)
+
+**Note**: Hole metrics changed Nov 2025 - now tracking average during play instead of at game-over.
+
+| Episode Range | Avg Holes | Min Holes | Final Holes | Steps/Ep | Lines/Ep | Stage |
+|---------------|-----------|-----------|-------------|----------|----------|-------|
+| 0-500 | 30-40 | 20-30 | 50-70 | 20-40 | 0 | Foundation |
+| 500-2000 | 25-35 | 15-25 | 45-60 | 100-150 | 0-0.1 | Clean placement |
+| 2000-12500 | 20-30 | 10-15 | 40-55 | 150-200 | 0.1-0.5 | Spreading |
+| 12500-30000 | 15-25 | 8-12 | 35-50 | 200-250 | 0.5-1.5 | Clean spreading |
+| 30000-50000 | 12-20 | 5-10 | 25-40 | 250-350 | 1.5-3 | Line clearing |
+| 50000-75000 | <15 | <8 | <30 | 300-500 | 3-5 | Expert play |
+
+**Key Points**:
+- Avg holes = Board quality during play (PRIMARY METRIC)
+- Min holes = Best state achieved (shows potential)
+- Final holes = At game-over (naturally higher, less important)
+- Without line clears, final holes will remain high (40-50+)
+- Line clears are the key to reducing final holes
 
 ## Debugging Tips
 
-1. **Training not progressing**: Check epsilon value with `agent.epsilon` - should decrease over time
-2. **Model not loading**: Verify checkpoint path, check `models/` directory
-3. **Observation shape errors**: Verify wrapper is active with `use_complete_vision=True`
-4. **Import errors**: Run `python tests/verify_imports.py`
-5. **Action space issues**: Print `env.action_space` and verify 8 actions
-6. **Board extraction bugs**: Test with `tests/test_board_extraction_fix.py`
+1. **High hole counts**: Check which metric - avg (during play) vs final (at game-over) - they differ significantly!
+2. **Training not progressing**: Check epsilon value with `agent.epsilon` - should decrease over time
+3. **Model not loading**: Verify checkpoint path, check `models/` directory
+4. **Observation shape errors**: Verify wrapper is active with `use_complete_vision=True`
+5. **Import errors**: Run `python tests/verify_imports.py`
+6. **Action space issues**: Print `env.action_space` and verify 8 actions
+7. **Board extraction bugs**: Test with `tests/test_board_extraction_fix.py`
+8. **Comparing old vs new logs**: Pre-Nov 2025 logs only have final holes; new logs have avg/min/final - NOT directly comparable!
 
 ## Testing Guidelines
 
