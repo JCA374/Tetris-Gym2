@@ -67,7 +67,7 @@ def test_hybrid_architecture():
         # Test action selection
         agent.q_network.eval()
         with torch.no_grad():
-            action = agent.act(obs)
+            action = agent.select_action(obs, eval_mode=True)
 
         print(f"   ✅ Action selected: {action}")
 
@@ -89,7 +89,7 @@ def test_hybrid_architecture():
 
             while True:
                 # Select action
-                action = agent.act(obs)
+                action = agent.select_action(obs, training=True)
 
                 # Take step
                 next_obs, reward, terminated, truncated, info = env.step(action)
@@ -125,7 +125,7 @@ def test_hybrid_architecture():
         # Train for a few more steps
         obs, _ = env.reset()
         for _ in range(50):
-            action = agent.act(obs)
+            action = agent.select_action(obs, training=True)
             next_obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             agent.remember(obs, action, reward, next_obs, done)
