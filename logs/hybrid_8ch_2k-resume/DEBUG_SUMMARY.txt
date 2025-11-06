@@ -1,0 +1,147 @@
+================================================================================
+TETRIS AI TRAINING - DEBUG SUMMARY
+================================================================================
+Generated: 2025-11-06 06:33:41
+Experiment: hybrid_8ch_2k-resume
+
+================================================================================
+TRAINING CONFIGURATION
+================================================================================
+Total episodes:        10000
+Episodes trained:      8000 (from 2000 to 10000)
+Training time:         454.9 minutes (7.58 hours)
+Time per episode:      3.41 seconds
+Learning rate:         0.0005
+Batch size:            64
+Gamma (discount):      0.99
+Epsilon start:         1.0
+Epsilon end:           0.01
+Epsilon decay:         0.9995
+Final epsilon:         0.0200
+Model type:            dqn
+Complete vision:       True
+CNN enabled:           True
+
+================================================================================
+CURRICULUM PROGRESSION
+================================================================================
+Final stage:           clean_spreading
+
+Stage Thresholds:
+  Stage 1 (Foundation):        Episodes 0-500
+  Stage 2 (Clean Placement):   Episodes 500-1000
+  Stage 3 (Spreading Found):   Episodes 1000-2000
+  Stage 4 (Clean Spreading):   Episodes 2000-5000
+  Stage 5 (Line Clearing):     Episodes 5000+
+
+Stage Transitions:
+  Episode  2000: foundation           → clean_spreading
+
+================================================================================
+PERFORMANCE METRICS (Last 100 Episodes)
+================================================================================
+Average reward:         11908.1
+Average steps:            320.2
+Average lines/ep:          0.25
+Total lines cleared:       1042
+Overall lines/ep:         0.130
+First line at:         Episode 2030
+
+Board Quality Metrics:
+  Holes:                   27.6  (target: <15)
+  Columns used:            10.0/10  (target: ≥8)
+  Completable rows:         0.5  (target: 3-5)
+  Clean rows:               1.3  (target: 10-15)
+
+================================================================================
+SUCCESS CRITERIA EVALUATION
+================================================================================
+Stage 2 (Clean Placement):  ❌ FAILED
+  Holes: 27.6 (target: <15)
+
+Stage 4 (Clean Spreading):  ✅ SUCCESS
+  Columns used: 10.0/10 (target: ≥8)
+
+Stage 5 (Line Clearing):    ❌ FAILED
+  Lines/episode: 0.25 (target: ≥2.0)
+
+Overall Performance:        👍 GOOD PROGRESS
+
+================================================================================
+PROBLEM ANALYSIS & RECOMMENDATIONS
+================================================================================
+Problems Detected:
+  ⚠️  Holes moderate (15-30) - Room for improvement
+  ✅ Spreading achieved (≥8 columns)!
+  ⚠️  WARNING: Low line clears (<1/episode) in Stage 5
+
+Recommendations:
+  → Agent progressing but not mastered clean play
+  → Continue training in current stage
+  → Agent needs to reduce holes first
+  → Increase completable_rows bonus
+  → Continue training for 2000-3000 more episodes
+
+================================================================================
+NEXT STEPS
+================================================================================
+👍 Good progress! Agent has learned spreading.
+
+Suggested next steps:
+  1. Continue training for 3000 more episodes
+  2. Focus on reducing holes to enable line clears
+  3. Monitor completable_rows metric - should increase
+  4. Expect first consistent line clears around episode 6000-8000
+
+================================================================================
+REWARD FUNCTION EFFECTIVENESS
+================================================================================
+Current stage: clean_spreading
+
+Typical reward for current performance (stage: clean_spreading):
+  Assumptions: 27 holes, 10 columns, 320 steps
+
+  Hole penalty:        -2.5 × 28 = -69.0
+  Completable rows:    +10.0 × 0.5 = 5.1
+  Clean rows:          +7.0 × 1.3 = 9.3
+  Spread bonus:        ~+25.0
+  Columns bonus:       +5.0 × 10 = 50.0
+
+If rewards are consistently negative:
+  → Agent is being penalized more than rewarded
+  → This is OK in early stages (learning from mistakes)
+  → Should become positive by episode 3000-5000
+
+If rewards are too high (>10000) without line clears:
+  → Agent may be exploiting survival bonus
+  → Check if holes are high - survival should be conditional
+  → Hole penalty may need to be stronger
+
+================================================================================
+OUTPUT FILES
+================================================================================
+Log directory:         logs/hybrid_8ch_2k-resume
+Board states:          board_states.txt
+Episode log (CSV):     episode_log.csv
+Reward plot:           reward_progress.png
+Metrics plot:          training_metrics.png
+Debug summary:         DEBUG_SUMMARY.txt (this file)
+
+================================================================================
+USEFUL DEBUG COMMANDS
+================================================================================
+View recent board states:
+  tail -100 logs/hybrid_8ch_2k-resume/board_states.txt
+
+Analyze hole progression:
+  awk -F',' 'NR>1 {print $4,$6}' logs/hybrid_8ch_2k-resume/episode_log.csv | tail -100
+
+Check line clearing progress:
+  awk -F',' 'NR>1 {sum+=$7} NR%1000==0 {print NR,sum}' logs/hybrid_8ch_2k-resume/episode_log.csv
+
+Resume training:
+  python train_progressive_improved.py --episodes 15000 --resume
+
+================================================================================
+END OF DEBUG SUMMARY
+================================================================================
