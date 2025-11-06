@@ -73,7 +73,8 @@ def test_hybrid_architecture():
 
         # Test Q-value computation
         obs_tensor = torch.FloatTensor(obs).to(agent.device)
-        q_values = agent.q_network(obs_tensor)
+        with torch.no_grad():
+            q_values = agent.q_network(obs_tensor)
 
         print(f"   Q-values shape: {q_values.shape}")
         print(f"   Q-values: {q_values.cpu().numpy()[0]}")
