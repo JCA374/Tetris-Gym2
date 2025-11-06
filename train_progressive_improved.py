@@ -411,8 +411,9 @@ def parse_args():
                         help=f'Batch size (default: {BATCH_SIZE})')
     parser.add_argument('--gamma', type=float, default=GAMMA,
                         help=f'Discount factor (default: {GAMMA})')
-    parser.add_argument('--model_type', type=str, default='dqn', choices=['dqn', 'dueling_dqn'],
-                        help='Model architecture type')
+    parser.add_argument('--model_type', type=str, default='dqn',
+                        choices=['dqn', 'dueling_dqn', 'hybrid_dqn', 'hybrid_dueling_dqn'],
+                        help='Model architecture type (hybrid models require 8-channel mode)')
 
     # Complete vision options
     parser.add_argument('--use_complete_vision', action='store_true', default=True,
@@ -486,12 +487,24 @@ def train(args):
         channels = env.observation_space.shape[-1]
         if channels == 8 and args.use_feature_channels:
             print(f"   ✅ 8-channel HYBRID mode confirmed (visual + features)!")
+            if args.model_type in ['hybrid_dqn', 'hybrid_dueling_dqn']:
+                print(f"   ✅ Using {args.model_type.upper()} - optimized for hybrid mode!")
         elif channels == 4 and not args.use_feature_channels:
             print(f"   ✅ 4-channel VISUAL-ONLY mode confirmed!")
+            if args.model_type in ['hybrid_dqn', 'hybrid_dueling_dqn']:
+                print(f"   ⚠️  WARNING: Hybrid model requires 8 channels! Use --use_feature_channels")
+                sys.exit(1)
         elif channels == 4 and args.use_feature_channels:
             print(f"   ⚠️  Expected 8 channels but got 4 - features may not be enabled!")
         else:
             print(f"   ⚠️  Unexpected channel count: {channels}")
+
+        # Validate hybrid model requirements
+        if args.model_type in ['hybrid_dqn', 'hybrid_dueling_dqn'] and channels != 8:
+            print(f"\n❌ ERROR: Hybrid models require 8-channel mode!")
+            print(f"   Current: {channels} channels")
+            print(f"   Solution: Use --use_feature_channels flag")
+            sys.exit(1)
 
     # Create improved progressive reward shaper
     reward_shaper = ImprovedProgressiveRewardShaper()
