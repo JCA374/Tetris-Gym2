@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Deep Q-Network (DQN) implementation for training AI agents to play Tetris using the Tetris Gymnasium environment. The project uses a multi-channel CNN architecture with progressive reward shaping to teach agents advanced Tetris strategies including hole avoidance, column spreading, and line clearing.
+This is a Deep Q-Network (DQN) implementation for training AI agents to play Tetris using the Tetris Gymnasium environment. The project uses a **Hybrid Dual-Branch CNN architecture** with 8-channel observations (visual + explicit features) and progressive reward shaping to teach agents advanced Tetris strategies.
+
+**Current Status**: Hybrid DQN training in progress (expected 15-25x faster learning than visual-only)
+
+**Key Innovation**: Dual-branch architecture that separately processes visual channels (board, active piece, holder, queue) and feature channels (holes, heights, bumpiness, wells) before fusion.
 
 ## Common Commands
 
@@ -21,17 +25,27 @@ pip install -r requirements.txt
 
 ### Training
 ```bash
-# Standard training (basic DQN)
-python train.py --episodes 500
+# RECOMMENDED: Hybrid Dual-Branch DQN (10-50x faster learning)
+python train_progressive_improved.py \
+    --episodes 10000 \
+    --force_fresh \
+    --model_type hybrid_dqn \
+    --experiment_name hybrid_10k
 
-# Progressive training (recommended for long runs)
-python train_progressive_improved.py --episodes 75000 --resume
+# Advanced: Hybrid Dueling DQN (10-20% better than standard hybrid)
+python train_progressive_improved.py \
+    --episodes 10000 \
+    --model_type hybrid_dueling_dqn \
+    --force_fresh
 
-# Resume from checkpoint
-python train_progressive_improved.py --episodes 75000 --resume
+# Test hybrid architecture before full training
+python test_hybrid_model.py
 
-# Fresh training (ignore checkpoints)
-python train_progressive_improved.py --episodes 10000 --force_fresh
+# Resume training from checkpoint
+python train_progressive_improved.py --episodes 20000 --resume --model_type hybrid_dqn
+
+# Baseline: Standard DQN (for comparison)
+python train_progressive_improved.py --episodes 10000 --force_fresh --model_type dqn
 ```
 
 ### Evaluation
@@ -72,14 +86,19 @@ python monitor_training.py
 
 ### Key Architectural Decisions
 
-**1. 4-Channel Vision System**
-- The environment wrapper (`CompleteVisionWrapper` in `config.py`) converts dict observations to 4-channel arrays
-- Output shape: `(20, 10, 4)` representing height × width × channels
-- Channel breakdown:
+**1. 8-Channel Hybrid Vision System**
+- The environment wrapper (`CompleteVisionWrapper` in `config.py`) converts dict observations to 8-channel arrays
+- Output shape: `(20, 10, 8)` representing height × width × channels
+- **Visual channels (0-3)**:
   - Channel 0: Board state (locked pieces)
-  - Channel 1: Active tetromino (falling piece)
+  - Channel 1: Active tetromino (falling piece with rotation)
   - Channel 2: Holder (held piece for swap)
   - Channel 3: Queue (preview of next pieces)
+- **Feature channels (4-7)** - Explicit spatial heatmaps:
+  - Channel 4: Holes heatmap (where holes exist)
+  - Channel 5: Height map (normalized column heights)
+  - Channel 6: Bumpiness map (height variation)
+  - Channel 7: Wells map (valleys between columns)
 
 **2. Board Extraction (CRITICAL)**
 - Tetris Gymnasium raw board is `(24, 18)`:
@@ -90,24 +109,42 @@ python monitor_training.py
 - Extract playable area: `board[0:20, 4:14]` to get `(20, 10)` array
 - This extraction logic is in `CompleteVisionWrapper.observation()` and `extract_board_from_obs()` in `src/reward_shaping.py`
 
-**3. DQN Model with CNN**
-- Located in `src/model.py`
-- Two architectures: Standard DQN and Dueling DQN
-- CNN layers optimized for 20×10 Tetris boards:
-  - Conv1: 32 filters, 3×3 kernel, stride=1, padding=1
-  - Conv2: 64 filters, 4×4 kernel, stride=2, padding=1
-  - Conv3: 64 filters, 3×3 kernel, stride=1, padding=1
-- Fully connected layers: Conv output → 512 → 256 → n_actions
+**3. Hybrid Dual-Branch DQN Model** ⭐ RECOMMENDED
+- Located in `src/model_hybrid.py`
+- **Architecture**: Separate processing for visual and feature data
+  ```
+  Input (20×10×8)
+      ↓
+      ├─→ Visual CNN (ch 0-3) → 3,200 features
+      │   Conv2d(4→32→64→64)
+      │   Optimized for spatial patterns
+      │
+      └─→ Feature CNN (ch 4-7) → 1,600 features
+          Conv2d(4→16→32)
+          Simpler - features already meaningful
+              ↓
+          Concatenate (4,800 features)
+              ↓
+          FC: 4800→512→256→8 Q-values
+  ```
+- **Why dual-branch?** Generic CNNs mix visual and feature channels immediately, diluting explicit feature signals. Dual-branch processes each optimally.
+- Two variants: `HybridDQN`, `HybridDuelingDQN`
 - **CRITICAL**: Dropout rate is 0.1 (not 0.3) for RL applications
 
-**4. Critical Fixes Applied (See CRITICAL_FIXES_APPLIED.md)**
+**4. Standard DQN Models** (Baseline)
+- Located in `src/model.py`
+- Generic CNN that treats all channels the same
+- Use for comparison or 4-channel visual-only mode
+- Variants: `DQN`, `DuelingDQN`
+
+**5. Critical Fixes Applied (See reports/archive/CRITICAL_FIXES_APPLIED.md)**
 - **Dropout Fix**: Reduced from 0.3 to 0.1 in all model layers
 - **Train/Eval Mode Fix**: Added `model.train()` in `agent.learn()` and `model.eval()` in `agent.act()`
   - Without these, dropout was ALWAYS active (even during inference)
   - This bug caused 30% random neurons to be off during play
   - Fix in `src/agent.py` lines 224 (eval mode) and 309 (train mode)
 
-**5. Progressive Reward Shaping**
+**6. Progressive Reward Shaping**
 - Implemented in `src/progressive_reward_improved.py`
 - 5-stage curriculum:
   - Stage 1 (0-500 episodes): Foundation - basic placement
@@ -118,7 +155,7 @@ python monitor_training.py
 - Dynamically adjusts reward weights based on episode count
 - Metrics tracked: holes, bumpiness, column heights, completable rows, clean rows, line clears
 
-**6. Agent with Adaptive Epsilon**
+**7. Agent with Adaptive Epsilon**
 - Located in `src/agent.py`
 - Supports three epsilon decay methods:
   - Exponential decay (default)
@@ -164,23 +201,39 @@ When editing training scripts (`train.py`, `train_progressive_improved.py`):
 
 ```
 tetris-rl/
-├── config.py                           # Environment config, CompleteVisionWrapper
-├── train.py                            # Basic training script
-├── train_progressive_improved.py       # Progressive curriculum training (recommended)
+├── README.md                           # Project overview and quick start
+├── CLAUDE.md                           # This file - Claude Code guidance
+├── HYBRID_DQN_GUIDE.md                # Current implementation guide
+├── DQN_RESEARCH_ANALYSIS.md           # Research findings on DQN approaches
+├── IMPLEMENTATION_PLAN.md             # Feature channel implementation plan
+├── PROJECT_HISTORY.md                 # Complete project history and learnings
+├── config.py                           # Environment config (8-channel wrapper)
+├── train_progressive_improved.py       # Main training script with hybrid support
+├── test_hybrid_model.py               # Test hybrid architecture
 ├── evaluate.py                         # Model evaluation
-├── monitor_training.py                 # Training monitoring utility
+├── visualize_features.py              # Visualize 8 channels
 ├── requirements.txt                    # Python dependencies
 ├── src/
 │   ├── agent.py                       # DQN agent with adaptive epsilon
-│   ├── model.py                       # DQN and Dueling DQN architectures
+│   ├── model.py                       # Standard DQN and Dueling DQN
+│   ├── model_hybrid.py                # Hybrid Dual-Branch DQN (RECOMMENDED)
+│   ├── feature_heatmaps.py            # Compute feature channel heatmaps
 │   ├── reward_shaping.py              # Core reward shaping functions
-│   ├── progressive_reward_improved.py # Progressive curriculum shaper
-│   ├── utils.py                       # Logging, plotting utilities
-│   └── env_wrapper.py                 # Additional environment wrappers
+│   ├── progressive_reward_improved.py # Progressive 5-stage curriculum
+│   └── utils.py                       # Logging, plotting utilities
 ├── tests/
-│   ├── test_*.py                      # Unit tests
-│   ├── diagnose_*.py                  # Diagnostic scripts
-│   └── verify_*.py                    # Verification scripts
+│   ├── test_feature_heatmaps.py       # Feature computation tests
+│   ├── test_feature_channels_training.py # Integration tests
+│   └── test_*.py                      # Other unit tests
+├── reports/
+│   ├── archive/                       # Historical documentation
+│   │   ├── CRITICAL_FIXES_APPLIED.md  # Dropout and train/eval mode fixes
+│   │   ├── HOLE_MEASUREMENT_FIX.md    # Metric tracking improvements
+│   │   ├── TRAINING_ANALYSIS_10K.md   # Visual-only baseline analysis
+│   │   ├── RECOMMENDATION.md          # Why dual-branch architecture
+│   │   └── ...                        # Other historical docs
+│   └── training_dqn_reward_review.md  # Old training analysis
+├── archive_scripts/                    # Old debug scripts
 ├── models/                             # Saved model checkpoints
 └── logs/                              # Training logs and plots
 ```

@@ -44,7 +44,7 @@ class ImprovedProgressiveRewardShaper:
         self.prev_holes = None  # Track holes for reduction bonus
         
     def get_current_stage(self) -> str:
-        """Get current curriculum stage based on episode count"""
+        """Get current curriculum stage based on episode count with fallback"""
         if self.episode_count < 500:
             return "foundation"
         elif self.episode_count < 1000:
@@ -54,10 +54,22 @@ class ImprovedProgressiveRewardShaper:
         elif self.episode_count < 5000:
             return "clean_spreading"
         else:
-            if not self.line_stage_unlocked and not self._ready_for_line_stage():
-                return "clean_spreading"
-            self.line_stage_unlocked = True
-            return "line_clearing_focus"
+            # Try performance gate first
+            if not self.line_stage_unlocked and self._ready_for_line_stage():
+                self.line_stage_unlocked = True
+                print("\n✅ Stage 5 unlocked: Performance gate passed\n")
+
+            # FALLBACK: Force transition after 3000 episodes in Stage 4 (episode 8000)
+            if not self.line_stage_unlocked and self.episode_count >= 8000:
+                self.line_stage_unlocked = True
+                print("\n⏭️  Stage 5 unlocked: Fallback timer (episode 8000)\n")
+                print(f"    Agent spent 3000 episodes in Stage 4 without passing gate.")
+                print(f"    Forcing progression to prevent infinite stuckness.\n")
+
+            if self.line_stage_unlocked:
+                return "line_clearing_focus"
+
+            return "clean_spreading"
 
     def update_curriculum_metrics(self, hole_avg=None, completable_avg=None, clean_avg=None):
         """
@@ -73,27 +85,33 @@ class ImprovedProgressiveRewardShaper:
 
         if self._ready_for_line_stage():
             self.line_stage_unlocked = True
-            print("\n✅ Curriculum gate passed: board cleanliness sufficient for line_clearing_focus stage\n")
+            print("\n✅ Curriculum gate passed: Stage 5 requirements met!")
+            print(f"    Holes: {hole_avg:.1f} (≤30) ✅")
+            if completable_avg is not None:
+                print(f"    Completable rows: {completable_avg:.2f} (≥0.3) ✅")
+            print()
 
     def _ready_for_line_stage(self) -> bool:
         """
         Determine whether the agent has earned the right to enter line-clearing focus.
-        Requirements (rolling average over recent episodes):
-          - holes <= 25
-          - completable rows >= 0.5
-          - clean rows >= 5 (optional softer gate; ignored if metric unavailable)
+        Requirements (RELAXED - rolling average over recent episodes):
+          - holes <= 30 (relaxed from 25)
+          - completable rows >= 0.3 (relaxed from 0.5, optional)
+          - clean rows requirement REMOVED (was too strict)
         """
-        if self.recent_hole_avg is None or self.recent_completable_avg is None:
+        if self.recent_hole_avg is None:
             return False
 
-        if self.recent_hole_avg > 25:
+        # Primary criterion: holes must be below 30
+        if self.recent_hole_avg > 30:
             return False
 
-        if self.recent_completable_avg < 0.5:
+        # Secondary criterion: completable rows >= 0.3 (optional, more lenient)
+        # If metric not tracked, ignore this requirement
+        if self.recent_completable_avg is not None and self.recent_completable_avg < 0.3:
             return False
 
-        if self.recent_clean_avg is not None and self.recent_clean_avg < 5.0:
-            return False
+        # Clean rows requirement REMOVED - was too strict for Stage 5 entry
 
         return True
     
