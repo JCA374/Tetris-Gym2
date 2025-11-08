@@ -136,24 +136,28 @@ def main():
     print("\nInitializing agent...")
 
     # Monkey-patch the agent's model creation to use simple models
+    # FIX: Use default arguments to capture variables at definition time (not closure)
     original_create_model = Agent.__init__
 
-    def patched_init(self, obs_space, action_space, **kwargs):
+    def patched_init(self, obs_space, action_space,
+                     _hidden_dims=args.hidden_dims,
+                     _epsilon_step=epsilon_linear_step,
+                     **kwargs):
         # Remove model_type from kwargs and save it
         model_type = kwargs.pop('model_type', 'simple_dqn')
 
         # Call original init
         original_create_model(self, obs_space, action_space, model_type="dqn", **kwargs)
 
-        # Replace networks with simple models
+        # Replace networks with simple models (using captured _hidden_dims)
         self.q_network = create_simple_model(
             obs_space, action_space, model_type=model_type,
-            hidden_dims=args.hidden_dims, is_target=False
+            hidden_dims=_hidden_dims, is_target=False
         ).to(self.device)
 
         self.target_network = create_simple_model(
             obs_space, action_space, model_type=model_type,
-            hidden_dims=args.hidden_dims, is_target=True
+            hidden_dims=_hidden_dims, is_target=True
         ).to(self.device)
 
         # Re-initialize optimizer with new network
@@ -162,9 +166,9 @@ def main():
         # Initialize target network
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-        # Override epsilon decay to linear
+        # Override epsilon decay to linear (using captured _epsilon_step)
         self.epsilon_decay_method = "linear"
-        self.epsilon_linear_step = epsilon_linear_step
+        self.epsilon_linear_step = _epsilon_step
 
     Agent.__init__ = patched_init
 

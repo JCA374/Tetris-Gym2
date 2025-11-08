@@ -19,6 +19,7 @@ Additional features can be enabled:
 """
 
 import numpy as np
+import gymnasium as gym
 from typing import Dict, Any, Union
 from .reward_shaping import (
     extract_board_from_obs,
@@ -210,12 +211,14 @@ class FeatureExtractor:
         return clean_rows
 
 
-class FeatureObservationWrapper:
+class FeatureObservationWrapper(gym.ObservationWrapper):
     """
     Gymnasium wrapper that converts board observations to feature vectors.
 
     This wrapper can be used to transform a Tetris environment that returns
     board observations into one that returns scalar features.
+
+    Properly inherits from gymnasium.ObservationWrapper for compatibility.
     """
 
     def __init__(self, env, feature_set="basic"):
@@ -226,11 +229,12 @@ class FeatureObservationWrapper:
             env: Tetris gymnasium environment
             feature_set: Feature set to extract (see FeatureExtractor)
         """
-        self.env = env
+        # Initialize base wrapper
+        super().__init__(env)
+
         self.extractor = FeatureExtractor(feature_set=feature_set)
 
         # Update observation space to be feature vector
-        import gymnasium as gym
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -238,25 +242,37 @@ class FeatureObservationWrapper:
             dtype=np.float32
         )
 
-        # Action space stays the same
-        self.action_space = env.action_space
-
         print(f"FeatureObservationWrapper applied to environment")
         print(f"  Original obs space: {env.observation_space}")
         print(f"  New obs space: {self.observation_space}")
 
-    def reset(self, **kwargs):
-        """Reset environment and convert observation to features."""
-        obs, info = self.env.reset(**kwargs)
-        feature_obs = self.extractor.extract(obs)
-        return feature_obs, info
+    def observation(self, obs):
+        """
+        Convert observation to feature vector.
+
+        This is the standard ObservationWrapper method that's called
+        automatically by reset() and step().
+
+        Args:
+            obs: Original observation from environment
+
+        Returns:
+            Feature vector (numpy array)
+        """
+        return self.extractor.extract(obs)
 
     def step(self, action):
-        """Step environment and convert observation to features."""
-        obs, reward, terminated, truncated, info = self.env.step(action)
-        feature_obs = self.extractor.extract(obs)
+        """
+        Step environment and add feature info.
 
-        # Add features to info for reward shaping
+        Override step to add feature values to info dict for reward shaping.
+        """
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        # Convert to features (via self.observation())
+        feature_obs = self.observation(obs)
+
+        # Add raw features to info for reward shaping
         board = extract_board_from_obs(obs)
         heights = get_column_heights(board)
         info['holes'] = count_holes(board)
@@ -265,18 +281,6 @@ class FeatureObservationWrapper:
         info['column_heights'] = heights
 
         return feature_obs, reward, terminated, truncated, info
-
-    def render(self):
-        """Render environment."""
-        return self.env.render()
-
-    def close(self):
-        """Close environment."""
-        return self.env.close()
-
-    def __getattr__(self, name):
-        """Forward any other attributes to wrapped environment."""
-        return getattr(self.env, name)
 
 
 def test_feature_extraction():

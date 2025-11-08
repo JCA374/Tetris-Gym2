@@ -41,16 +41,19 @@ def run_experiment(config, experiment_dir="ablation_results"):
     cmd = ["python", config['script']]
 
     for arg, value in config['args'].items():
-        cmd.append(arg)
         if isinstance(value, bool):
+            # Boolean flags (like --force_fresh)
             if value:
-                # Boolean flag (like --force_fresh)
-                pass  # Already added
+                # Flag is True: add it without a value
+                cmd.append(arg)
+            # If False: don't add the flag at all (skip it)
         elif isinstance(value, list):
             # List argument (like --hidden_dims 64 64)
+            cmd.append(arg)
             cmd.extend(map(str, value))
         else:
-            # Regular argument
+            # Regular argument with value
+            cmd.append(arg)
             cmd.append(str(value))
 
     print(f"Command: {' '.join(cmd)}")
