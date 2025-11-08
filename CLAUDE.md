@@ -46,6 +46,18 @@ python train_progressive_improved.py --episodes 20000 --resume --model_type hybr
 
 # Baseline: Standard DQN (for comparison)
 python train_progressive_improved.py --episodes 10000 --force_fresh --model_type dqn
+
+# NEW: Simple Feature-Based Baseline (from literature)
+python train_baseline_simple.py \
+    --episodes 5000 \
+    --feature_set basic \
+    --reward_variant quadratic \
+    --experiment_name baseline_5k
+
+# Compare baseline vs. hybrid
+python compare_models.py \
+    --log_dirs logs/baseline_5k logs/hybrid_10k \
+    --names "Simple Baseline" "Hybrid DQN"
 ```
 
 ### Evaluation
@@ -164,6 +176,29 @@ python monitor_training.py
 - Experience replay with prioritization
 - Target network updated every 1000 steps
 - Memory size: 200,000 transitions
+- **FIXED**: Double reward shaping bug (warning added when agent shaping is enabled)
+
+**8. Simple Feature-Based Baseline** 🆕 **RECOMMENDED FOR COMPARISON**
+- Located in `src/model_simple.py`, `src/feature_extraction.py`, `src/reward_simple.py`
+- **Purpose**: Baseline implementation from literature to compare against hybrid CNN
+- **Architecture**: 4-8 scalar features → Dense(64) → Dense(64) → Q-values (~5k params)
+- **Features**: Holes, bumpiness, aggregate height, completable rows
+- **Reward**: Simple sparse rewards (lines²×10 + survival - death)
+- **Training**: Fast (2-4 hours for 5k episodes vs. 6-8 hours for hybrid)
+- **Usage**:
+  ```bash
+  # Train simple baseline
+  python train_baseline_simple.py --episodes 5000
+
+  # Compare with hybrid
+  python compare_models.py --log_dirs logs/baseline_5k logs/hybrid_10k
+  ```
+- **Why use it**:
+  - Validate if hybrid CNN complexity provides real benefits
+  - Fast iteration for testing reward functions
+  - Proven approach from successful implementations (nuno-faria/tetris-ai)
+  - 560× fewer parameters than hybrid (5k vs. 2.8M)
+- **See**: `BASELINE_GUIDE.md` for complete usage instructions
 
 ## Important Code Patterns
 
@@ -203,23 +238,31 @@ When editing training scripts (`train.py`, `train_progressive_improved.py`):
 tetris-rl/
 ├── README.md                           # Project overview and quick start
 ├── CLAUDE.md                           # This file - Claude Code guidance
-├── HYBRID_DQN_GUIDE.md                # Current implementation guide
+├── HYBRID_DQN_GUIDE.md                # Hybrid DQN implementation guide
+├── BASELINE_GUIDE.md                  # **NEW**: Simple baseline DQN guide
 ├── DQN_RESEARCH_ANALYSIS.md           # Research findings on DQN approaches
 ├── IMPLEMENTATION_PLAN.md             # Feature channel implementation plan
 ├── PROJECT_HISTORY.md                 # Complete project history and learnings
 ├── config.py                           # Environment config (8-channel wrapper)
-├── train_progressive_improved.py       # Main training script with hybrid support
+├── train_progressive_improved.py       # Hybrid DQN training (complex)
+├── train_baseline_simple.py           # **NEW**: Simple baseline training
+├── compare_models.py                  # **NEW**: Model comparison framework
+├── ablation_configs.py                # **NEW**: Ablation study configs
+├── run_ablation_study.py              # **NEW**: Run ablation studies
 ├── test_hybrid_model.py               # Test hybrid architecture
 ├── evaluate.py                         # Model evaluation
 ├── visualize_features.py              # Visualize 8 channels
 ├── requirements.txt                    # Python dependencies
 ├── src/
-│   ├── agent.py                       # DQN agent with adaptive epsilon
-│   ├── model.py                       # Standard DQN and Dueling DQN
-│   ├── model_hybrid.py                # Hybrid Dual-Branch DQN (RECOMMENDED)
-│   ├── feature_heatmaps.py            # Compute feature channel heatmaps
+│   ├── agent.py                       # DQN agent with adaptive epsilon (FIXED: double reward shaping)
+│   ├── model.py                       # Standard DQN and Dueling DQN (CNN-based)
+│   ├── model_hybrid.py                # Hybrid Dual-Branch DQN (our innovation)
+│   ├── model_simple.py                # **NEW**: Simple feature-based DQN (from literature)
+│   ├── feature_extraction.py          # **NEW**: Extract scalar features from board
+│   ├── feature_heatmaps.py            # Compute feature channel heatmaps (for CNN)
 │   ├── reward_shaping.py              # Core reward shaping functions
-│   ├── progressive_reward_improved.py # Progressive 5-stage curriculum
+│   ├── progressive_reward_improved.py # Progressive 5-stage curriculum (complex)
+│   ├── reward_simple.py               # **NEW**: Simple sparse rewards (from literature)
 │   └── utils.py                       # Logging, plotting utilities
 ├── tests/
 │   ├── test_feature_heatmaps.py       # Feature computation tests
@@ -260,6 +303,8 @@ Tetris Gymnasium v0.3.0 action mapping (from `config.py`):
 ## Important Files to Check Before Modifying
 
 - `AGENTS.md` - Repository guidelines and conventions
+- `DQN_TETRIS_COMPREHENSIVE_ANALYSIS.md` - **NEW**: In-depth analysis and comparison (READ THIS!)
+- `BASELINE_GUIDE.md` - **NEW**: How to use simple baseline DQN
 - `CRITICAL_FIXES_APPLIED.md` - Critical bug fixes (dropout, train/eval)
 - `HOLE_MEASUREMENT_FIX.md` - **CRITICAL**: How holes are measured (during play vs at game-over)
 - `14H_TRAINING_PLAN.md` - Long-term training strategy
