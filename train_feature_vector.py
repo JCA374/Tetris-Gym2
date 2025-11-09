@@ -28,15 +28,23 @@ from src.env_feature_vector import make_feature_vector_env
 from src.agent import Agent
 from src.utils import TrainingLogger, make_dir
 
-# Global variable for graceful shutdown
+# Global variables for graceful shutdown
 _training_interrupted = False
+_logger = None
 
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C gracefully"""
-    global _training_interrupted
+    global _training_interrupted, _logger
     print("\n\n⚠️  Training interrupted by user. Saving progress...")
     _training_interrupted = True
+
+    # Save logs if available
+    if _logger is not None:
+        print("📊 Saving logs and plots...")
+        _logger.save_logs()
+        _logger.plot_progress()
+        print("✅ Logs saved successfully")
 
 
 def parse_args():
@@ -108,6 +116,7 @@ def simple_reward(env_reward, info):
 
 def train(args):
     """Main training loop"""
+    global _logger
 
     print("=" * 80)
     print("FEATURE VECTOR DQN TRAINING")
@@ -168,6 +177,7 @@ def train(args):
     make_dir(model_dir)
 
     logger = TrainingLogger(log_dir, experiment_name)
+    _logger = logger  # Set global for signal handler
 
     print(f"   Logging to: {log_dir}")
     print(f"   Models saved to: {model_dir}")
@@ -190,6 +200,7 @@ def train(args):
         steps = 0
         lines_cleared = 0
         done = False
+        final_state = state.copy()
 
         # Episode loop
         while not done:
@@ -211,6 +222,7 @@ def train(args):
 
             # Update state
             state = next_state
+            final_state = next_state.copy()
             total_reward += reward
             steps += 1
 
@@ -220,14 +232,25 @@ def train(args):
         # End episode (updates epsilon, logs stats)
         agent.end_episode(total_reward, steps, lines_cleared, original_reward=env_reward)
 
-        # Log episode
+        # Extract feature metrics from final state (already feature vector from wrapper)
+        final_features = final_state
+
+        # Log episode with rich metrics
         logger.log_episode(
             episode=episode + 1,
             reward=total_reward,
             steps=steps,
             epsilon=agent.epsilon,
             lines_cleared=lines_cleared,
-            memory_size=len(agent.memory)
+            memory_size=len(agent.memory),
+            # Feature metrics for analysis
+            aggregate_height=float(final_features[0]),
+            holes=float(final_features[1]),
+            bumpiness=float(final_features[2]),
+            wells=float(final_features[3]),
+            max_height=float(final_features[14]),
+            min_height=float(final_features[15]),
+            std_height=float(final_features[16])
         )
 
         # Update best lines
@@ -249,7 +272,7 @@ def train(args):
                   f"Best: {best_lines:2d} lines | "
                   f"Speed: {episodes_per_sec:.1f} ep/s")
 
-        # Periodic checkpoint
+        # Periodic checkpoint and log saving
         if (episode + 1) % args.save_freq == 0:
             checkpoint_path = model_dir / f"checkpoint_ep{episode+1}.pth"
             torch.save({
@@ -261,6 +284,11 @@ def train(args):
             }, checkpoint_path)
             print(f"   💾 Checkpoint saved: {checkpoint_path}")
 
+            # Save logs periodically
+            logger.save_logs()
+            logger.plot_progress()
+            print(f"   📊 Logs and plots updated")
+
     # Training finished
     total_time = time.time() - start_time
 
@@ -271,8 +299,23 @@ def train(args):
     print(f"Total time: {total_time/3600:.2f} hours ({total_time/60:.1f} minutes)")
     print(f"Best performance: {best_lines} lines cleared")
     print(f"Final epsilon: {agent.epsilon:.4f}")
-    print(f"Logs saved to: {log_dir}")
     print("=" * 80)
+
+    # Save logs and generate plots
+    print(f"\n📊 Saving logs and generating plots...")
+    logger.save_logs()
+    logger.plot_progress()
+
+    # Print summary statistics
+    summary = logger.get_summary()
+    print(f"\n📈 Training Summary:")
+    print(f"   Total episodes: {summary.get('total_episodes', 0)}")
+    print(f"   Mean reward: {summary.get('mean_reward', 0):.2f} ± {summary.get('std_reward', 0):.2f}")
+    print(f"   Max reward: {summary.get('max_reward', 0):.2f}")
+    if 'recent_mean_reward' in summary:
+        print(f"   Recent mean (last 100): {summary['recent_mean_reward']:.2f}")
+    print(f"   Final epsilon: {summary.get('final_epsilon', 'N/A')}")
+    print(f"\n✅ Logs saved to: {log_dir}")
 
     # Final save
     final_path = model_dir / "final_model.pth"
