@@ -182,7 +182,7 @@ def train(args):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         experiment_name = f"feature_vector_{args.model_type}_{timestamp}"
 
-    log_dir = Path("logs") / experiment_name
+    log_dir = Path("logs")
     model_dir = Path("models")
     make_dir(log_dir)
     make_dir(model_dir)
@@ -190,7 +190,7 @@ def train(args):
     logger = TrainingLogger(log_dir, experiment_name)
     _logger = logger  # Set global for signal handler
 
-    print(f"   Logging to: {log_dir}")
+    print(f"   Logging to: {logger.experiment_dir}")
     print(f"   Models saved to: {model_dir}")
 
     # Training loop
