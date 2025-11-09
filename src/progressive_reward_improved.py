@@ -363,7 +363,7 @@ class ImprovedProgressiveRewardShaper:
         components['base'] = base_component
 
         holes = metrics['holes']
-        hole_penalty = -5.0 * holes
+        hole_penalty = -1.0 * holes  # FIXED: Reduced from -5.0 to -1.0 (was dominating rewards)
         components['hole_penalty'] = hole_penalty
 
         hole_reduction_bonus = 0.0
@@ -426,14 +426,16 @@ class ImprovedProgressiveRewardShaper:
         quality = 0.0
         line_bonus = 0.0
         if lines > 0:
-            quality = max(0.3, 1.0 - (metrics['holes'] / 50.0) - (metrics['bumpiness'] / 100.0))
-            line_bonus = lines * 150.0 * quality
+            # FIXED: More lenient quality calculation (was too strict)
+            quality = max(0.5, 1.0 - (metrics['holes'] / 80.0))
+            # FIXED: Increased line bonuses significantly (agent must learn lines are valuable!)
+            line_bonus = lines * 1000.0 * quality  # Was 150, now 1000 (6.7x increase)
             if lines == 2:
-                line_bonus += 50.0 * quality
+                line_bonus += 500.0 * quality  # Was 50, now 500 (10x increase)
             elif lines == 3:
-                line_bonus += 100.0 * quality
+                line_bonus += 2000.0 * quality  # Was 100, now 2000 (20x increase)
             elif lines == 4:
-                line_bonus += 400.0 * quality
+                line_bonus += 5000.0 * quality  # Was 400, now 5000 (12.5x increase - TETRIS!)
         components['line_bonus'] = line_bonus
 
         efficiency_bonus = 0.0
