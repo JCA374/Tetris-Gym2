@@ -201,6 +201,7 @@ def train(args):
         lines_cleared = 0
         done = False
         final_state = state.copy()
+        final_raw_board = None
 
         # Episode loop
         while not done:
@@ -210,6 +211,17 @@ def train(args):
             # Take action
             next_state, env_reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
+
+            # Store final board for visualization (access underlying Tetris env)
+            if done and hasattr(env, 'env'):
+                try:
+                    # Access the base Tetris environment through wrapper chain
+                    base_env = env.env if hasattr(env, 'env') else env.unwrapped
+                    if hasattr(base_env, 'board'):
+                        # Extract playable area: rows 0-19, cols 4-13
+                        final_raw_board = base_env.board[0:20, 4:14].copy()
+                except:
+                    pass
 
             # Compute shaped reward
             reward = simple_reward(env_reward, info)
@@ -252,6 +264,52 @@ def train(args):
             min_height=float(final_features[15]),
             std_height=float(final_features[16])
         )
+
+        # Log board state every N episodes for debugging
+        if (episode + 1) % (args.log_freq * 5) == 0 or lines_cleared > 0:
+            if final_raw_board is not None:
+                # Denormalize features for display
+                from src.feature_vector import get_column_heights
+                board_binary = (final_raw_board > 0).astype(int)
+                actual_heights = get_column_heights(board_binary)
+
+                logger.log_board_state(
+                    episode=episode + 1,
+                    board=board_binary,
+                    reward=total_reward,
+                    steps=steps,
+                    lines_cleared=lines_cleared,
+                    heights=actual_heights.tolist(),
+                    # Feature vector (normalized)
+                    features_normalized={
+                        'aggregate_height': f"{final_features[0]:.3f}",
+                        'holes': f"{final_features[1]:.3f}",
+                        'bumpiness': f"{final_features[2]:.3f}",
+                        'wells': f"{final_features[3]:.3f}",
+                        'max_height': f"{final_features[14]:.3f}",
+                        'std_height': f"{final_features[16]:.3f}",
+                    }
+                )
+            else:
+                # Feature-only logging if board access fails
+                logger.log_board_state(
+                    episode=episode + 1,
+                    board=None,
+                    reward=total_reward,
+                    steps=steps,
+                    lines_cleared=lines_cleared,
+                    features_only=True,
+                    features_normalized={
+                        'aggregate_height': f"{final_features[0]:.3f}",
+                        'holes': f"{final_features[1]:.3f}",
+                        'bumpiness': f"{final_features[2]:.3f}",
+                        'wells': f"{final_features[3]:.3f}",
+                        'column_heights': final_features[4:14].tolist(),
+                        'max_height': f"{final_features[14]:.3f}",
+                        'min_height': f"{final_features[15]:.3f}",
+                        'std_height': f"{final_features[16]:.3f}",
+                    }
+                )
 
         # Update best lines
         if lines_cleared > best_lines:

@@ -230,29 +230,47 @@ class TrainingLogger:
 
         Args:
             episode: Episode number
-            board: 2D numpy array (20x10) representing the board
+            board: 2D numpy array (20x10) representing the board (or None for feature-only)
             reward: Episode reward
             steps: Number of steps in episode
             lines_cleared: Number of lines cleared
-            **kwargs: Additional metrics (heights, holes, etc.)
+            **kwargs: Additional metrics (heights, holes, features_normalized, features_only, etc.)
         """
         with open(self.board_log_path, 'a') as f:
+            f.write(f"\n{'='*70}\n")
             f.write(f"Episode {episode} | Reward: {reward:.1f} | Steps: {steps} | Lines: {lines_cleared}\n")
+            f.write(f"{'='*70}\n")
 
-            # Add extra metrics if provided
+            # Feature vector representation (if provided)
+            if 'features_normalized' in kwargs:
+                features = kwargs['features_normalized']
+                f.write(f"\n🎯 FEATURE VECTOR (normalized 0-1):\n")
+                f.write(f"   Aggregate Height: {features.get('aggregate_height', 'N/A')}\n")
+                f.write(f"   Holes:           {features.get('holes', 'N/A')}\n")
+                f.write(f"   Bumpiness:       {features.get('bumpiness', 'N/A')}\n")
+                f.write(f"   Wells:           {features.get('wells', 'N/A')}\n")
+                f.write(f"   Max Height:      {features.get('max_height', 'N/A')}\n")
+                if 'min_height' in features:
+                    f.write(f"   Min Height:      {features.get('min_height', 'N/A')}\n")
+                if 'std_height' in features:
+                    f.write(f"   Std Height:      {features.get('std_height', 'N/A')}\n")
+                if 'column_heights' in features:
+                    col_heights = features['column_heights']
+                    f.write(f"   Column Heights:  {col_heights}\n")
+
+            # Column heights (raw values)
             if 'heights' in kwargs:
-                f.write(f"Column heights: {kwargs['heights']}\n")
-            if 'holes' in kwargs:
-                f.write(f"Holes: {kwargs['holes']}")
-            if 'bumpiness' in kwargs:
-                f.write(f" | Bumpiness: {kwargs['bumpiness']:.1f}")
-            if 'max_height' in kwargs:
-                f.write(f" | Max height: {kwargs['max_height']}")
-            if 'holes' in kwargs or 'bumpiness' in kwargs or 'max_height' in kwargs:
-                f.write("\n")
+                f.write(f"\n📊 Column Heights (actual): {kwargs['heights']}\n")
+
+            # Features-only mode (no board visualization)
+            if kwargs.get('features_only', False):
+                f.write(f"\n(Board visualization not available - feature vector mode)\n")
+                return
 
             # Visual board representation
-            f.write("  " + "0123456789" + "\n")
+            if board is not None:
+                f.write(f"\n📋 BOARD STATE:\n")
+                f.write("  " + "0123456789" + "\n")
 
             for r in range(min(20, board.shape[0])):
                 row_str = "".join("█" if board[r, c] > 0 else "·" for c in range(board.shape[1]))
