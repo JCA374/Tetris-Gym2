@@ -386,12 +386,11 @@ class Agent:
             if self.epsilon > self.epsilon_end:
                 self.epsilon *= self.epsilon_decay
 
-        # Log epsilon changes at key milestones
-        if (self.episodes_done <= 10 or 
-            self.episodes_done % 1000 == 0 or 
-            abs(self.epsilon - old_epsilon) > 0.01):
-            print(f"Episode {self.episodes_done}: Epsilon = {self.epsilon:.4f}")
-            
+        # Log epsilon changes only at major milestones (reduced verbosity)
+        # Training script handles per-episode logging
+        if self.episodes_done % 1000 == 0:
+            print(f"🎯 Milestone Episode {self.episodes_done}: Epsilon = {self.epsilon:.4f}")
+
             # Show which phase we're in for adaptive
             if self.epsilon_decay_method == "adaptive":
                 current_phase = None
@@ -400,7 +399,7 @@ class Agent:
                         current_phase = phase['description']
                         break
                 if current_phase:
-                    print(f"  Phase: {current_phase}")
+                    print(f"   Phase: {current_phase}")
 
         episode_data = {
             'episode': self.episodes_done,
