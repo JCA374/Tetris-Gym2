@@ -1,0 +1,836 @@
+================================================================================
+FINAL BOARD STATES LOG
+================================================================================
+
+
+======================================================================
+Episode 50 | Reward: 101.0 | Steps: 101 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.415
+   Holes:           0.175
+   Bumpiness:       0.211
+   Wells:           0.030
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.721
+   Column Heights:  [0.0, 0.25, 0.25, 0.8999999761581421, 0.949999988079071, 0.8999999761581421, 0.5, 0.3499999940395355, 0.05000000074505806, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 100 | Reward: 42.0 | Steps: 42 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.455
+   Holes:           0.235
+   Bumpiness:       0.222
+   Wells:           0.015
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.860
+   Column Heights:  [0.0, 0.15000000596046448, 0.15000000596046448, 0.8999999761581421, 1.0, 1.0, 0.949999988079071, 0.4000000059604645, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 150 | Reward: 63.0 | Steps: 63 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.630
+   Holes:           0.390
+   Bumpiness:       0.222
+   Wells:           0.120
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.696
+   Column Heights:  [0.0, 0.800000011920929, 0.75, 0.75, 0.8999999761581421, 0.949999988079071, 0.949999988079071, 0.800000011920929, 0.4000000059604645, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 200 | Reward: 93.0 | Steps: 93 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.455
+   Holes:           0.195
+   Bumpiness:       0.211
+   Wells:           0.060
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.650
+   Column Heights:  [0.0, 0.0, 0.44999998807907104, 0.5, 0.6000000238418579, 0.699999988079071, 0.949999988079071, 0.75, 0.6000000238418579, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 250 | Reward: 55.0 | Steps: 55 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.360
+   Holes:           0.160
+   Bumpiness:       0.211
+   Wells:           0.000
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.885
+   Column Heights:  [0.0, 0.0, 0.0, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.800000011920929, 0.0, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 300 | Reward: 91.0 | Steps: 91 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.650
+   Holes:           0.350
+   Bumpiness:       0.167
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.732
+   Column Heights:  [0.0, 0.0, 0.8999999761581421, 0.8999999761581421, 0.949999988079071, 1.0, 0.949999988079071, 0.800000011920929, 0.5, 0.5]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 350 | Reward: 83.0 | Steps: 83 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.595
+   Holes:           0.295
+   Bumpiness:       0.222
+   Wells:           0.090
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.855
+   Column Heights:  [0.0, 0.0, 0.3499999940395355, 0.8500000238418579, 0.949999988079071, 1.0, 1.0, 0.8999999761581421, 0.8999999761581421, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 400 | Reward: 57.0 | Steps: 57 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.460
+   Holes:           0.240
+   Bumpiness:       0.211
+   Wells:           0.000
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.924
+   Column Heights:  [0.0, 0.0, 0.0, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.800000011920929, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 450 | Reward: 123.0 | Steps: 123 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.415
+   Holes:           0.135
+   Bumpiness:       0.217
+   Wells:           0.005
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.867
+   Column Heights:  [0.0, 0.0, 0.0, 0.8500000238418579, 1.0, 0.949999988079071, 0.949999988079071, 0.25, 0.10000000149011612, 0.05000000074505806]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 500 | Reward: 73.0 | Steps: 73 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.450
+   Holes:           0.190
+   Bumpiness:       0.211
+   Wells:           0.025
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.821
+   Column Heights:  [0.0, 0.0, 0.0, 0.75, 0.949999988079071, 0.8999999761581421, 0.8999999761581421, 0.75, 0.25, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 550 | Reward: 71.0 | Steps: 71 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.460
+   Holes:           0.200
+   Bumpiness:       0.222
+   Wells:           0.010
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.875
+   Column Heights:  [0.0, 0.05000000074505806, 0.10000000149011612, 0.8999999761581421, 1.0, 1.0, 0.949999988079071, 0.550000011920929, 0.05000000074505806, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 600 | Reward: 91.0 | Steps: 91 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.580
+   Holes:           0.300
+   Bumpiness:       0.178
+   Wells:           0.005
+   Max Height:      1.000
+   Min Height:      0.050
+   Std Height:      0.668
+   Column Heights:  [0.05000000074505806, 0.05000000074505806, 0.8500000238418579, 0.8500000238418579, 0.949999988079071, 1.0, 0.6499999761581421, 0.6499999761581421, 0.4000000059604645, 0.3499999940395355]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 650 | Reward: 61.0 | Steps: 61 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.455
+   Holes:           0.255
+   Bumpiness:       0.222
+   Wells:           0.075
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.849
+   Column Heights:  [0.0, 0.0, 0.05000000074505806, 0.15000000596046448, 1.0, 1.0, 0.8500000238418579, 0.75, 0.75, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 700 | Reward: 119.0 | Steps: 119 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.450
+   Holes:           0.190
+   Bumpiness:       0.211
+   Wells:           0.050
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.720
+   Column Heights:  [0.0, 0.30000001192092896, 0.30000001192092896, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.6499999761581421, 0.25, 0.20000000298023224, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 750 | Reward: 66.0 | Steps: 66 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.550
+   Holes:           0.310
+   Bumpiness:       0.222
+   Wells:           0.075
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.778
+   Column Heights:  [0.0, 0.699999988079071, 0.699999988079071, 0.8500000238418579, 0.8999999761581421, 0.949999988079071, 1.0, 0.3499999940395355, 0.05000000074505806, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 800 | Reward: 96.0 | Steps: 96 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.470
+   Holes:           0.190
+   Bumpiness:       0.228
+   Wells:           0.030
+   Max Height:      1.000
+   Min Height:      0.100
+   Std Height:      0.647
+   Column Heights:  [0.15000000596046448, 0.10000000149011612, 0.550000011920929, 0.550000011920929, 0.75, 0.949999988079071, 1.0, 0.15000000596046448, 0.30000001192092896, 0.20000000298023224]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 850 | Reward: 64.0 | Steps: 64 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.540
+   Holes:           0.300
+   Bumpiness:       0.211
+   Wells:           0.050
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.787
+   Column Heights:  [0.0, 0.0, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.550000011920929, 0.550000011920929, 0.5, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 900 | Reward: 90.0 | Steps: 90 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.650
+   Holes:           0.350
+   Bumpiness:       0.167
+   Wells:           0.030
+   Max Height:      1.000
+   Min Height:      0.100
+   Std Height:      0.578
+   Column Heights:  [0.15000000596046448, 0.10000000149011612, 0.550000011920929, 0.8500000238418579, 0.8999999761581421, 1.0, 0.699999988079071, 0.800000011920929, 0.800000011920929, 0.6499999761581421]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 950 | Reward: 56.0 | Steps: 56 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.465
+   Holes:           0.225
+   Bumpiness:       0.228
+   Wells:           0.010
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.845
+   Column Heights:  [0.15000000596046448, 0.10000000149011612, 0.0, 0.699999988079071, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.8999999761581421, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1000 | Reward: 101.0 | Steps: 101 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.510
+   Holes:           0.270
+   Bumpiness:       0.267
+   Wells:           0.040
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.849
+   Column Heights:  [0.0, 0.0, 0.75, 0.8999999761581421, 1.0, 1.0, 0.949999988079071, 0.0, 0.30000001192092896, 0.20000000298023224]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1050 | Reward: 81.0 | Steps: 81 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.470
+   Holes:           0.270
+   Bumpiness:       0.278
+   Wells:           0.045
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.875
+   Column Heights:  [0.0, 0.0, 0.8500000238418579, 0.800000011920929, 1.0, 1.0, 0.8500000238418579, 0.0, 0.20000000298023224, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1100 | Reward: 76.0 | Steps: 76 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.540
+   Holes:           0.320
+   Bumpiness:       0.211
+   Wells:           0.045
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.787
+   Column Heights:  [0.0, 0.44999998807907104, 0.44999998807907104, 0.8500000238418579, 0.8500000238418579, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1150 | Reward: 90.0 | Steps: 90 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.405
+   Holes:           0.225
+   Bumpiness:       0.211
+   Wells:           0.040
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.823
+   Column Heights:  [0.0, 0.0, 0.0, 0.10000000149011612, 0.8999999761581421, 0.949999988079071, 0.8999999761581421, 0.800000011920929, 0.4000000059604645, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1200 | Reward: 71.0 | Steps: 71 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.365
+   Holes:           0.165
+   Bumpiness:       0.222
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.798
+   Column Heights:  [0.0, 0.0, 0.0, 0.6499999761581421, 1.0, 1.0, 0.5, 0.5, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1250 | Reward: 80.0 | Steps: 80 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.590
+   Holes:           0.310
+   Bumpiness:       0.206
+   Wells:           0.005
+   Max Height:      1.000
+   Min Height:      0.100
+   Std Height:      0.790
+   Column Heights:  [0.10000000149011612, 0.10000000149011612, 0.800000011920929, 1.0, 1.0, 0.949999988079071, 0.8500000238418579, 0.8500000238418579, 0.10000000149011612, 0.15000000596046448]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1300 | Reward: 60.0 | Steps: 60 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.565
+   Holes:           0.305
+   Bumpiness:       0.222
+   Wells:           0.045
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.781
+   Column Heights:  [0.0, 0.30000001192092896, 0.699999988079071, 0.699999988079071, 1.0, 1.0, 0.949999988079071, 0.8500000238418579, 0.15000000596046448, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1350 | Reward: 94.0 | Steps: 94 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.435
+   Holes:           0.195
+   Bumpiness:       0.217
+   Wells:           0.035
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.771
+   Column Heights:  [0.0, 0.0, 0.0, 0.75, 0.8999999761581421, 1.0, 0.800000011920929, 0.44999998807907104, 0.4000000059604645, 0.05000000074505806]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1400 | Reward: 61.0 | Steps: 61 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.360
+   Holes:           0.180
+   Bumpiness:       0.211
+   Wells:           0.000
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.821
+   Column Heights:  [0.0, 0.0, 0.0, 0.25, 0.8999999761581421, 0.949999988079071, 0.949999988079071, 0.550000011920929, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1450 | Reward: 137.0 | Steps: 137 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.595
+   Holes:           0.235
+   Bumpiness:       0.206
+   Wells:           0.090
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.632
+   Column Heights:  [0.15000000596046448, 0.44999998807907104, 0.5, 0.699999988079071, 0.699999988079071, 1.0, 1.0, 0.8500000238418579, 0.6000000238418579, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1500 | Reward: 54.0 | Steps: 54 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.330
+   Holes:           0.130
+   Bumpiness:       0.228
+   Wells:           0.015
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.803
+   Column Heights:  [0.0, 0.0, 0.0, 0.20000000298023224, 0.8999999761581421, 0.949999988079071, 0.949999988079071, 0.0, 0.15000000596046448, 0.15000000596046448]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1550 | Reward: 114.0 | Steps: 114 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.555
+   Holes:           0.235
+   Bumpiness:       0.211
+   Wells:           0.005
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.771
+   Column Heights:  [0.4000000059604645, 0.30000001192092896, 0.25, 0.949999988079071, 0.949999988079071, 1.0, 0.8999999761581421, 0.800000011920929, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1600 | Reward: 71.0 | Steps: 71 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.385
+   Holes:           0.165
+   Bumpiness:       0.211
+   Wells:           0.010
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.832
+   Column Heights:  [0.0, 0.10000000149011612, 0.15000000596046448, 0.75, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.05000000074505806, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1650 | Reward: 42.0 | Steps: 42 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.430
+   Holes:           0.230
+   Bumpiness:       0.222
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.878
+   Column Heights:  [0.0, 0.0, 0.699999988079071, 0.75, 1.0, 1.0, 0.8500000238418579, 0.0, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1700 | Reward: 65.0 | Steps: 65 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.455
+   Holes:           0.235
+   Bumpiness:       0.222
+   Wells:           0.010
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.892
+   Column Heights:  [0.0, 0.0, 0.0, 0.6499999761581421, 0.8500000238418579, 0.949999988079071, 1.0, 1.0, 0.10000000149011612, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1750 | Reward: 87.0 | Steps: 87 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.480
+   Holes:           0.260
+   Bumpiness:       0.211
+   Wells:           0.035
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.821
+   Column Heights:  [0.0, 0.05000000074505806, 0.05000000074505806, 0.75, 0.8999999761581421, 0.949999988079071, 0.8999999761581421, 0.8999999761581421, 0.30000001192092896, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1800 | Reward: 87.0 | Steps: 87 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.440
+   Holes:           0.220
+   Bumpiness:       0.206
+   Wells:           0.005
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.821
+   Column Heights:  [0.15000000596046448, 0.15000000596046448, 0.15000000596046448, 0.15000000596046448, 1.0, 0.949999988079071, 0.949999988079071, 0.8500000238418579, 0.05000000074505806, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1850 | Reward: 123.0 | Steps: 123 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.685
+   Holes:           0.345
+   Bumpiness:       0.172
+   Wells:           0.075
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.587
+   Column Heights:  [0.0, 0.699999988079071, 0.8500000238418579, 0.8500000238418579, 1.0, 0.949999988079071, 0.949999988079071, 0.6000000238418579, 0.5, 0.44999998807907104]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1900 | Reward: 71.0 | Steps: 71 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.505
+   Holes:           0.305
+   Bumpiness:       0.222
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.868
+   Column Heights:  [0.0, 0.0, 0.8999999761581421, 1.0, 1.0, 0.8999999761581421, 0.75, 0.5, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 1950 | Reward: 84.0 | Steps: 84 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.620
+   Holes:           0.340
+   Bumpiness:       0.133
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.825
+   Column Heights:  [0.0, 0.0, 0.0, 0.8500000238418579, 1.0, 1.0, 0.949999988079071, 0.800000011920929, 0.800000011920929, 0.800000011920929]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2000 | Reward: 61.0 | Steps: 61 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.405
+   Holes:           0.205
+   Bumpiness:       0.222
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.849
+   Column Heights:  [0.0, 0.0, 0.0, 0.8500000238418579, 1.0, 1.0, 0.6000000238418579, 0.6000000238418579, 0.0, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2050 | Reward: 132.0 | Steps: 132 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.640
+   Holes:           0.320
+   Bumpiness:       0.156
+   Wells:           0.040
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.629
+   Column Heights:  [0.0, 0.3499999940395355, 0.4000000059604645, 0.800000011920929, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.550000011920929, 0.5]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2100 | Reward: 111.0 | Steps: 111 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.665
+   Holes:           0.365
+   Bumpiness:       0.211
+   Wells:           0.145
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.681
+   Column Heights:  [0.0, 0.75, 0.75, 0.8500000238418579, 0.949999988079071, 0.8999999761581421, 0.8999999761581421, 0.8500000238418579, 0.699999988079071, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2150 | Reward: 152.0 | Steps: 152 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.560
+   Holes:           0.240
+   Bumpiness:       0.222
+   Wells:           0.070
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.820
+   Column Heights:  [0.0, 0.0, 0.3499999940395355, 0.949999988079071, 1.0, 1.0, 0.8999999761581421, 0.699999988079071, 0.699999988079071, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2200 | Reward: 85.0 | Steps: 85 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.395
+   Holes:           0.135
+   Bumpiness:       0.239
+   Wells:           0.040
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.726
+   Column Heights:  [0.0, 0.20000000298023224, 0.0, 0.8500000238418579, 0.949999988079071, 0.949999988079071, 0.44999998807907104, 0.25, 0.15000000596046448, 0.15000000596046448]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2250 | Reward: 38.0 | Steps: 38 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.455
+   Holes:           0.275
+   Bumpiness:       0.211
+   Wells:           0.050
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.797
+   Column Heights:  [0.0, 0.0, 0.0, 0.699999988079071, 0.949999988079071, 0.949999988079071, 0.8999999761581421, 0.550000011920929, 0.5, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2300 | Reward: 142.0 | Steps: 142 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.665
+   Holes:           0.285
+   Bumpiness:       0.150
+   Wells:           0.055
+   Max Height:      0.950
+   Min Height:      0.150
+   Std Height:      0.484
+   Column Heights:  [0.15000000596046448, 0.6000000238418579, 0.800000011920929, 0.8999999761581421, 0.8999999761581421, 0.949999988079071, 0.75, 0.699999988079071, 0.5, 0.4000000059604645]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2350 | Reward: 74.0 | Steps: 74 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.565
+   Holes:           0.325
+   Bumpiness:       0.156
+   Wells:           0.015
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.795
+   Column Heights:  [0.0, 0.0, 0.0, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.699999988079071, 0.6499999761581421, 0.5]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2400 | Reward: 117.0 | Steps: 117 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.475
+   Holes:           0.175
+   Bumpiness:       0.189
+   Wells:           0.000
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.831
+   Column Heights:  [0.0, 0.0, 0.0, 1.0, 1.0, 0.949999988079071, 0.8999999761581421, 0.30000001192092896, 0.30000001192092896, 0.30000001192092896]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2450 | Reward: 94.0 | Steps: 94 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.525
+   Holes:           0.225
+   Bumpiness:       0.222
+   Wells:           0.055
+   Max Height:      1.000
+   Min Height:      0.000
+   Std Height:      0.774
+   Column Heights:  [0.0, 0.0, 0.4000000059604645, 0.949999988079071, 1.0, 0.949999988079071, 0.75, 0.6499999761581421, 0.550000011920929, 0.0]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2500 | Reward: 126.0 | Steps: 126 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.720
+   Holes:           0.400
+   Bumpiness:       0.089
+   Wells:           0.005
+   Max Height:      0.950
+   Min Height:      0.550
+   Std Height:      0.307
+   Column Heights:  [0.6499999761581421, 0.6499999761581421, 0.75, 0.699999988079071, 0.8999999761581421, 0.949999988079071, 0.949999988079071, 0.550000011920929, 0.550000011920929, 0.550000011920929]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2550 | Reward: 165.0 | Steps: 165 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.660
+   Holes:           0.280
+   Bumpiness:       0.133
+   Wells:           0.015
+   Max Height:      0.950
+   Min Height:      0.350
+   Std Height:      0.433
+   Column Heights:  [0.3499999940395355, 0.3499999940395355, 0.800000011920929, 0.8999999761581421, 0.8999999761581421, 0.949999988079071, 0.6499999761581421, 0.699999988079071, 0.550000011920929, 0.44999998807907104]
+
+(Board visualization not available - feature vector mode)
+
+======================================================================
+Episode 2600 | Reward: 94.0 | Steps: 94 | Lines: 0
+======================================================================
+
+🎯 FEATURE VECTOR (normalized 0-1):
+   Aggregate Height: 0.440
+   Holes:           0.200
+   Bumpiness:       0.211
+   Wells:           0.010
+   Max Height:      0.950
+   Min Height:      0.000
+   Std Height:      0.880
+   Column Heights:  [0.0, 0.0, 0.0, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.949999988079071, 0.5, 0.10000000149011612, 0.0]
+
+(Board visualization not available - feature vector mode)

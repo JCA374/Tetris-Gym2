@@ -1,259 +1,243 @@
-# Tetris AI with Deep Reinforcement Learning
+# Tetris DQN - Feature Vector Approach
 
-A modular Deep Q-Network (DQN) implementation for training AI agents to play Tetris using the modern **Tetris Gymnasium** environment.
+A Deep Q-Network (DQN) implementation for training AI agents to play Tetris using **feature vectors** (direct scalar features, not images) with the **Tetris Gymnasium** environment.
 
-## 🎯 Features
+**Current Approach**: Feature Vector DQN - extracting 17 scalar features from the game board and feeding them to a simple fully-connected network. This is the proven approach used by 90%+ of successful Tetris DQN implementations.
 
-- **Modern Environment**: Uses [Tetris Gymnasium](https://github.com/Max-We/Tetris-Gymnasium) - the most up-to-date Tetris RL environment
-- **Flexible Architecture**: Supports both standard DQN and Dueling DQN
-- **Comprehensive Logging**: Detailed training metrics, plots, and TensorBoard support
-- **Easy Evaluation**: Built-in evaluation scripts with video recording
-- **Modular Design**: Clean, extensible codebase for research and experimentation
+## 🎯 Why Feature Vectors?
+
+Based on competitive analysis of Tetris DQN implementations:
+- **100-1000x better sample efficiency** than image-based approaches
+- **Direct representation** of game state (holes, heights, bumpiness)
+- **Smaller networks** (~46K parameters vs 1.2M for CNNs)
+- **Proven approach** - vast majority of successful implementations use features
+
+See [COMPETITIVE_ANALYSIS.md](COMPETITIVE_ANALYSIS.md) for detailed research findings.
 
 ## 🚀 Quick Start
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd tetris_ai
-   ```
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd Tetris-Gym2
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Linux/Mac
+# venv\Scripts\activate   # On Windows
 
-3. **Test the setup**
-   ```bash
-   python test_setup.py
-   ```
+# Install dependencies
+pip install -r requirements.txt
+```
 
 ### Training
 
 ```bash
-# Basic training
-python train.py
+# Quick test (100 episodes, ~1 minute)
+./venv/bin/python train_feature_vector.py --episodes 100 --log_freq 10
 
-# Advanced training with custom parameters
-python train.py --episodes 1000 --lr 0.0001 --model_type dueling_dqn --experiment_name "my_experiment"
+# Recommended training (5,000 episodes, ~3-5 hours)
+./venv/bin/python train_feature_vector.py --episodes 5000 --model_type fc_dqn
+
+# Full training (20,000 episodes, ~10-15 hours)
+./venv/bin/python train_feature_vector.py --episodes 20000 --model_type fc_dqn
+
+# Try Dueling DQN (may be 10-20% better)
+./venv/bin/python train_feature_vector.py --episodes 5000 --model_type fc_dueling_dqn
+
+# Force fresh start (ignore checkpoints)
+./venv/bin/python train_feature_vector.py --episodes 5000 --force_fresh
 ```
 
-### Evaluation
+### Analysis
 
 ```bash
-# Evaluate trained model
-python evaluate.py --episodes 10 --render
-
-# Detailed evaluation with video recording
-python evaluate.py --episodes 20 --render --save_video --detailed
+# Analyze completed training run
+python analyze_training.py logs/feature_vector_fc_dqn_<timestamp>
 ```
+
+## 📊 Expected Performance
+
+| Episode Range | Lines/Episode | Status |
+|---------------|--------------|--------|
+| 0-500 | 0-1 | Learning survival |
+| 500-1,000 | 1-5 | Basic line clearing |
+| 1,000-2,000 | 5-20 | Consistent clearing |
+| 2,000-5,000 | 20-100 | Advanced strategy |
+| 5,000+ | 100-1,000+ | Expert performance |
+
+**Success at 5,000 episodes:**
+- ✅ Lines/episode > 50
+- ✅ First 100+ line episode before episode 3,000
+- ✅ Consistent line clearing
+- ✅ Reward trending upward
+
+## 🏗️ Architecture Overview
+
+### Feature Extraction (17 Features)
+From board state → 17 normalized scalars:
+- Aggregate height, max/min/std height
+- Holes count
+- Bumpiness (height differences)
+- Wells (valley depths)
+- Column heights (10 values)
+
+See [FEATURE_VECTOR_GUIDE.md](FEATURE_VECTOR_GUIDE.md) for complete details.
+
+### Neural Network
+Simple fully-connected network (NO CNNs):
+```
+Input: 17 features
+  ↓
+FC: 256 → 128 → 64 (with ReLU, Dropout 0.1)
+  ↓
+Output: 8 Q-values (one per action)
+
+Total: ~46K parameters
+```
+
+### Reward Function
+```python
+reward = 1.0                      # Positive survival reward
+       + lines_cleared * 100      # Huge bonus for lines
+       - holes * 2.0              # Penalize holes
+       - aggregate_height * 0.1   # Slight penalty for height
+```
+
+**Critical**: Always use positive survival reward, never negative per-step penalty!
 
 ## 📁 Project Structure
 
 ```
-tetris_ai/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── .gitignore               # Git ignore rules
-├── config.py                # Environment configuration & hyperparameters
-├── train.py                 # Training script
-├── evaluate.py              # Evaluation script
-├── test_setup.py           # Comprehensive test script
+Tetris-Gym2/
+├── README.md                           # This file
+├── FEATURE_VECTOR_GUIDE.md            # Complete implementation guide
+├── COMPETITIVE_ANALYSIS.md            # Why features beat CNNs
+├── LOGGING_GUIDE.md                   # Monitoring and analysis
+├── PROJECT_LOG.md                     # Project history and changes
+├── CLAUDE.md                          # AI assistant guidance
+├── INDEX.md                           # Documentation navigation
 │
-├── src/                     # Core library code
-│   ├── __init__.py
-│   ├── model.py            # Neural network architectures (DQN, Dueling DQN)
-│   ├── agent.py            # RL agent implementation
-│   ├── env.py              # Environment wrapper (simplified)
-│   └── utils.py            # Utilities (logging, plotting, benchmarking)
+├── train_feature_vector.py            # Main training script
+├── analyze_training.py                # Post-training analysis
+├── evaluate.py                        # Model evaluation
+├── requirements.txt                   # Python dependencies
 │
-├── models/                  # Saved model checkpoints (created during training)
-├── logs/                   # Training logs and plots (created during training)
-└── HW.txt                  # Hardware specifications
+├── src/                               # Core library
+│   ├── agent.py                       # DQN agent
+│   ├── feature_vector.py              # Feature extraction (17 scalars)
+│   ├── model_fc.py                    # FC DQN models (current)
+│   ├── env_feature_vector.py          # Feature vector wrapper
+│   └── utils.py                       # Logging, plotting
+│
+├── archive_files/                     # Archived hybrid CNN implementation
+├── logs/                              # Training logs (auto-created)
+└── models/                            # Saved checkpoints (auto-created)
 ```
 
 ## 🔧 Configuration
 
-Key settings in `config.py`:
+Default hyperparameters (in `train_feature_vector.py`):
+- Learning rate: 0.0001
+- Gamma (discount): 0.99
+- Batch size: 64
+- Memory size: 100,000 transitions
+- Epsilon: 1.0 → 0.05 (adaptive decay)
+- Target network update: every 1,000 steps
 
-```python
-# Environment
-ENV_NAME = "tetris_gymnasium/Tetris"
-
-# Training hyperparameters
-LR = 1e-4                    # Learning rate
-GAMMA = 0.99                 # Discount factor
-BATCH_SIZE = 32              # Batch size
-MAX_EPISODES = 500           # Default training episodes
-
-# Directories
-MODEL_DIR = "models/"        # Model checkpoints
-LOG_DIR = "logs/"           # Training logs
-```
-
-## 🎮 Environment Details
-
-This project uses **Tetris Gymnasium**, which offers:
-
-- **Modern API**: Built on Gymnasium (successor to OpenAI Gym)
-- **Customizable**: Adjustable board size, gravity, reward functions
-- **Feature-rich**: Comprehensive game statistics and info
-- **Performance**: Both standard and JAX-based implementations
-- **Documentation**: Excellent docs and examples
-
-### Environment Configuration
-
-You can customize the Tetris environment:
-
-```python
-# Different board sizes
-env = make_env("tetris_gymnasium/Tetris", 
-               board_height=15, board_width=8)
-
-# Different preprocessing
-env = make_env("tetris_gymnasium/Tetris", 
-               preprocess=True, frame_stack=4)
-```
-
-## 🧠 Model Architectures
-
-### Standard DQN
-- Convolutional layers for image processing
-- Fully connected layers for decision making
-- Experience replay and target networks
-
-### Dueling DQN
-- Separate value and advantage streams
-- Better value estimation for states
-- Improved performance on Tetris
-
-## 📊 Training Features
-
-### Automatic Logging
-- Episode rewards and statistics
-- Training plots and progress visualization
-- Model checkpoints and best model saving
-- CSV logs for detailed analysis
-
-### Monitoring
-- Real-time training progress
-- Periodic evaluation during training
-- Performance metrics and benchmarking
-- Optional TensorBoard integration
-
-### Resumable Training
+Override with command-line args:
 ```bash
-# Resume from latest checkpoint
-python train.py --resume
-
-# Custom model path
-python evaluate.py --model_path models/best_model.pth
+./venv/bin/python train_feature_vector.py \
+    --episodes 10000 \
+    --lr 0.0005 \
+    --batch_size 128 \
+    --epsilon_decay 0.999
 ```
 
-## 🎯 Training Tips
+## 🐛 Troubleshooting
 
-### Quick Testing (Fast feedback)
+### Agent not learning (zero lines after 1,000 episodes)
+- Check reward function (should be positive for survival)
+- Verify epsilon decaying properly (check console output)
+- Ensure replay buffer filling (needs 1,000 transitions to start)
+- See [CLAUDE.md](CLAUDE.md#debugging-tips) for detailed tips
+
+### Import errors
 ```bash
-python train.py --episodes 100 --log_freq 5 --eval_freq 20
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Production Training (Best results)
-```bash
-python train.py --episodes 2000 --model_type dueling_dqn --lr 0.0001
+### Model loading errors
+- Feature vector models incompatible with CNN models
+- Check model architecture matches (input_size=17, output_size=8)
+
+## 📚 Documentation
+
+**Essential Reading:**
+- [FEATURE_VECTOR_GUIDE.md](FEATURE_VECTOR_GUIDE.md) - Complete implementation guide
+- [COMPETITIVE_ANALYSIS.md](COMPETITIVE_ANALYSIS.md) - Why this approach works
+- [LOGGING_GUIDE.md](LOGGING_GUIDE.md) - How to monitor training
+- [PROJECT_LOG.md](PROJECT_LOG.md) - Project history and bug fixes
+- [CLAUDE.md](CLAUDE.md) - Developer guidance and patterns
+
+**Historical Context:**
+- [CLEANUP_PLAN.md](CLEANUP_PLAN.md) - What was archived and why
+- `archive_files/` - Previous hybrid CNN implementation
+
+## 🎯 Action Space
+
+Tetris Gymnasium v0.3.0 actions:
+```
+0: LEFT, 1: RIGHT, 2: DOWN, 3: ROTATE_CW,
+4: ROTATE_CCW, 5: HARD_DROP, 6: SWAP, 7: NOOP
 ```
 
-### Custom Environment (Easier learning)
-Modify `config.py` to use smaller board:
-```python
-def make_env(...):
-    env = gym.make("tetris_gymnasium/Tetris", 
-                   board_height=10, board_width=6)  # Smaller board
-```
+## 🔬 Key Learnings
 
-## 📈 Results and Analysis
+### Critical Bug Fixes (see PROJECT_LOG.md)
 
-Training outputs are saved to:
-- `logs/<experiment_name>/` - Training logs and plots
-- `models/` - Model checkpoints
-- `models/evaluation_results/` - Evaluation summaries
+**Epsilon Decay Bug (Nov 2025):**
+- Agent initialized without `max_episodes` parameter
+- Caused epsilon to decay for 25K episodes when training only 5-6K
+- Result: Agent stuck exploring (ε=0.59 at episode 6000 instead of 0.05)
+- **Fix**: Pass `max_episodes=args.episodes` to Agent
 
-View training progress:
-```bash
-# Generate plots from logs
-python -c "from src.utils import TrainingLogger; logger = TrainingLogger('logs', 'your_experiment'); logger.plot_progress()"
-```
+**Broken Reward Function (Nov 2025):**
+- Original used negative per-step penalty (-0.1 per step)
+- Taught agent optimal strategy was dying immediately
+- **Fix**: Use positive survival reward (+1.0 per step)
 
-## 🔍 Troubleshooting
+### Best Practices
+- Always use positive survival rewards
+- Let epsilon decay properly for episode count
+- Monitor lines cleared as primary success metric
+- Feature vectors are 100-1000x more sample efficient than images
 
-### Common Issues
+## 📖 References
 
-1. **Import errors**: Ensure all dependencies are installed
-   ```bash
-   pip install tetris-gymnasium gymnasium torch numpy
-   ```
-
-2. **CUDA issues**: Check PyTorch CUDA compatibility
-   ```bash
-   python -c "import torch; print(torch.cuda.is_available())"
-   ```
-
-3. **Environment errors**: Run the test script
-   ```bash
-   python test_setup.py
-   ```
-
-### Performance Optimization
-
-- Use `render_mode=None` for training (faster)
-- Reduce board size for quicker convergence
-- Use GPU if available (automatic detection)
-- Adjust `batch_size` based on your hardware
-
-## 🔬 Research and Extensions
-
-This codebase is designed for research and experimentation:
-
-### Easy Modifications
-- **New reward functions**: Modify the environment wrapper
-- **Different architectures**: Add models to `src/model.py`
-- **Alternative algorithms**: Extend `src/agent.py`
-- **Custom environments**: Use different Tetris configurations
-
-### Advanced Features
-- **Multi-agent training**: Train multiple agents simultaneously
-- **Hyperparameter tuning**: Use the modular config system
-- **Transfer learning**: Load pre-trained models
-- **Custom metrics**: Add domain-specific evaluation metrics
-
-## 📚 References
-
-- [Tetris Gymnasium Paper](https://easychair.org/publications/preprint/5sXq): "Piece by Piece: Assembling a Modular Reinforcement Learning Environment for Tetris"
-- [Tetris Gymnasium GitHub](https://github.com/Max-We/Tetris-Gymnasium)
-- [DQN Paper](https://arxiv.org/abs/1312.5602): "Playing Atari with Deep Reinforcement Learning"
-- [Dueling DQN Paper](https://arxiv.org/abs/1511.06581): "Dueling Network Architectures for Deep Reinforcement Learning"
-
-## 📄 License
-
-This project is licensed under the MIT License. See the original Tetris Gymnasium repository for additional licensing information.
+- [Tetris Gymnasium](https://github.com/Max-We/Tetris-Gymnasium) - Modern Tetris RL environment
+- [DQN Paper](https://arxiv.org/abs/1312.5602) - Playing Atari with Deep RL
+- [Dueling DQN Paper](https://arxiv.org/abs/1511.06581) - Dueling Network Architectures
 
 ## 🤝 Contributing
 
-Contributions are welcome! Areas for improvement:
-- New model architectures
-- Better reward shaping
-- Performance optimizations
-- Additional evaluation metrics
-- Documentation improvements
+Contributions welcome! Focus areas:
+- Feature engineering (new board features)
+- Reward function improvements
+- Hyperparameter optimization
+- Documentation enhancements
 
-## 🎖️ Acknowledgments
+## 📄 License
 
-- **Tetris Gymnasium**: Modern, modular Tetris environment
-- **Gymnasium**: Standard RL environment API
-- **PyTorch**: Deep learning framework
-- **OpenAI**: Original Gym framework inspiration
+MIT License
 
 ---
 
-**Happy training! 🎮🤖**
+**Ready to train?** Start with the quick test, then scale up to 5,000+ episodes for real results!
+
+```bash
+./venv/bin/python train_feature_vector.py --episodes 5000
+```

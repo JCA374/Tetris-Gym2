@@ -168,7 +168,8 @@ def train(args):
         batch_size=args.batch_size,
         memory_size=100000,
         min_memory_size=1000,
-        model_type=args.model_type
+        model_type=args.model_type,
+        max_episodes=args.episodes
     )
 
     # Device
