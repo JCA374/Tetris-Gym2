@@ -91,9 +91,12 @@ def parse_args():
 
 def simple_reward(env_reward, info):
     """
-    Simple proven reward function.
+    Improved reward function that incentivizes survival and good play.
 
-    Based on research: lines_cleared - holes - bumpiness works well.
+    Key changes from broken version:
+    - Positive reward for survival (not penalty)
+    - Penalize bad board states (holes, height)
+    - Big reward for line clears
 
     Args:
         env_reward: Reward from environment (usually 0)
@@ -102,14 +105,22 @@ def simple_reward(env_reward, info):
     Returns:
         float: Shaped reward
     """
-    # Get metrics
+    # Get metrics from info
     lines = info.get('number_of_lines', 0)
 
-    # Simple reward: heavily reward line clears
-    reward = lines * 100
+    # Base reward: positive for surviving (encourage staying alive)
+    reward = 1.0
 
-    # Small penalty for each step to encourage efficiency
-    reward -= 0.1
+    # Huge bonus for line clears (this is the main goal)
+    if lines > 0:
+        reward += lines * 100
+
+    # Penalize bad board states (if available in info)
+    # Note: These might not be in info from base env, but won't hurt to check
+    if 'holes' in info:
+        reward -= info['holes'] * 2.0  # Penalize holes
+    if 'aggregate_height' in info:
+        reward -= info['aggregate_height'] * 0.1  # Slight penalty for high board
 
     return reward
 
