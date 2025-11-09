@@ -106,7 +106,7 @@ def simple_reward(env_reward, info):
         float: Shaped reward
     """
     # Get metrics from info
-    lines = info.get('number_of_lines', 0)
+    lines = info.get('lines_cleared', 0)
 
     # Base reward: positive for surviving (encourage staying alive)
     reward = 1.0
@@ -251,7 +251,7 @@ def train(args):
             steps += 1
 
             # Track lines
-            lines_cleared = info.get('number_of_lines', 0)
+            lines_cleared = info.get('lines_cleared', 0)
 
         # End episode (updates epsilon, logs stats)
         agent.end_episode(total_reward, steps, lines_cleared, original_reward=env_reward)
