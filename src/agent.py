@@ -79,7 +79,11 @@ class Agent:
 
         # Reward shaping
         self.reward_shaping_type = reward_shaping
-        print(f"Reward shaping: {reward_shaping}")
+        if reward_shaping == "none":
+            print(f"✓ Agent reward shaping: DISABLED (external shaping in use)")
+        else:
+            print(f"⚠️  Agent reward shaping: ENABLED ({reward_shaping})")
+            print(f"   WARNING: Ensure no external reward shaper is also active!")
 
         # Tracking
         self.steps_done = 0
@@ -151,9 +155,22 @@ class Agent:
         return self.epsilon_end
 
     def _apply_reward_shaping(self, reward, done, info):
-        """Strong, positive shaping + light anti-center bias."""
+        """
+        Strong, positive shaping + light anti-center bias.
+
+        IMPORTANT: When using external reward shapers (e.g., progressive_reward_improved.py),
+        set reward_shaping="none" during agent initialization to avoid double-shaping.
+
+        Args:
+            reward: Raw or pre-shaped reward
+            done: Episode termination flag
+            info: Additional environment info
+
+        Returns:
+            Shaped reward (or unchanged if reward_shaping_type == "none")
+        """
         if self.reward_shaping_type == "none":
-            return reward
+            return reward  # Pass through - external shaping in use
 
         shaped = float(reward)
 
