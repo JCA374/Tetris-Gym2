@@ -18,7 +18,11 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-from src.feature_vector import extract_feature_vector, normalize_features
+# Handle both direct execution and module import
+try:
+    from src.feature_vector import extract_feature_vector, normalize_features
+except ModuleNotFoundError:
+    from feature_vector import extract_feature_vector, normalize_features
 
 
 class FeatureVectorWrapper(gym.ObservationWrapper):

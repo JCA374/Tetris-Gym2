@@ -23,9 +23,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# Import environment and model
+# Import environment and agent
 from src.env_feature_vector import make_feature_vector_env
-from src.model_fc import create_feature_vector_model
 from src.agent import Agent
 from src.utils import TrainingLogger, make_dir
 
@@ -136,27 +135,20 @@ def train(args):
     print(f"   Input size: {input_size} features")
     print(f"   Output size: {output_size} actions")
 
-    # Create model
-    print(f"\n🧠 Creating {args.model_type} model...")
-    model = create_feature_vector_model(
-        model_type=args.model_type,
-        input_size=input_size,
-        output_size=output_size
-    )
-
-    # Create agent
-    print(f"\n🤖 Initializing agent...")
+    # Create agent (which will create the model internally)
+    print(f"\n🤖 Initializing agent with {args.model_type} model...")
     agent = Agent(
-        model=model,
-        action_size=output_size,
+        obs_space=env.observation_space,
+        action_space=env.action_space,
         lr=args.lr,
         gamma=args.gamma,
-        epsilon=args.epsilon_start,
-        epsilon_min=args.epsilon_end,
+        epsilon_start=args.epsilon_start,
+        epsilon_end=args.epsilon_end,
         epsilon_decay=args.epsilon_decay,
         batch_size=args.batch_size,
         memory_size=100000,
-        min_memory_size=1000
+        min_memory_size=1000,
+        model_type=args.model_type
     )
 
     # Device
@@ -202,7 +194,7 @@ def train(args):
         # Episode loop
         while not done:
             # Agent selects action
-            action = agent.act(state)
+            action = agent.select_action(state, training=True)
 
             # Take action
             next_state, env_reward, terminated, truncated, info = env.step(action)
@@ -212,7 +204,7 @@ def train(args):
             reward = simple_reward(env_reward, info)
 
             # Store transition
-            agent.remember(state, action, reward, next_state, done)
+            agent.remember(state, action, reward, next_state, done, info=info, original_reward=env_reward)
 
             # Learn
             agent.learn()
@@ -225,23 +217,24 @@ def train(args):
             # Track lines
             lines_cleared = info.get('number_of_lines', 0)
 
-        # Episode finished
-        episode_data = {
-            'episode': episode + 1,
-            'steps': steps,
-            'reward': total_reward,
-            'lines_cleared': lines_cleared,
-            'epsilon': agent.epsilon,
-            'memory_size': len(agent.memory)
-        }
+        # End episode (updates epsilon, logs stats)
+        agent.end_episode(total_reward, steps, lines_cleared, original_reward=env_reward)
 
-        logger.log_episode(episode_data)
+        # Log episode
+        logger.log_episode(
+            episode=episode + 1,
+            reward=total_reward,
+            steps=steps,
+            epsilon=agent.epsilon,
+            lines_cleared=lines_cleared,
+            memory_size=len(agent.memory)
+        )
 
         # Update best lines
         if lines_cleared > best_lines:
             best_lines = lines_cleared
             # Save best model
-            torch.save(agent.model.state_dict(), model_dir / "best_model.pth")
+            torch.save(agent.q_network.state_dict(), model_dir / "best_model.pth")
 
         # Periodic logging
         if (episode + 1) % args.log_freq == 0:
@@ -261,7 +254,7 @@ def train(args):
             checkpoint_path = model_dir / f"checkpoint_ep{episode+1}.pth"
             torch.save({
                 'episode': episode + 1,
-                'model_state_dict': agent.model.state_dict(),
+                'model_state_dict': agent.q_network.state_dict(),
                 'optimizer_state_dict': agent.optimizer.state_dict(),
                 'epsilon': agent.epsilon,
                 'best_lines': best_lines
@@ -283,7 +276,7 @@ def train(args):
 
     # Final save
     final_path = model_dir / "final_model.pth"
-    torch.save(agent.model.state_dict(), final_path)
+    torch.save(agent.q_network.state_dict(), final_path)
     print(f"✅ Final model saved: {final_path}")
 
     env.close()

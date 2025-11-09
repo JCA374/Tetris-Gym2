@@ -240,13 +240,23 @@ def create_model(obs_space, action_space, model_type="dqn", is_target=False):
     Args:
         obs_space: Environment observation space
         action_space: Environment action space
-        model_type: "dqn", "dueling_dqn", "hybrid_dqn", or "hybrid_dueling_dqn"
+        model_type: "dqn", "dueling_dqn", "hybrid_dqn", "hybrid_dueling_dqn", "fc_dqn", or "fc_dueling_dqn"
         is_target: If True, suppresses initialization message (for target network)
 
     Returns:
         Initialized model
     """
     model_type = model_type.lower()
+
+    # Check if feature vector model is requested
+    if model_type in ["fc_dqn", "fc_dueling_dqn"]:
+        from src.model_fc import FeatureVectorDQN, FeatureVectorDuelingDQN
+        input_size = obs_space.shape[0]
+        output_size = action_space.n
+        if model_type == "fc_dueling_dqn":
+            return FeatureVectorDuelingDQN(input_size, output_size)
+        else:
+            return FeatureVectorDQN(input_size, output_size)
 
     # Check if hybrid model is requested
     if model_type in ["hybrid_dqn", "hybrid_dueling_dqn"]:
