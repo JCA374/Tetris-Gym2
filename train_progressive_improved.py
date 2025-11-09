@@ -14,6 +14,7 @@ import signal
 from datetime import datetime
 from pathlib import Path
 import numpy as np
+import torch
 
 # Import from existing codebase
 from config import make_env, ENV_NAME, LR, GAMMA, BATCH_SIZE, MODEL_DIR, LOG_DIR
@@ -697,9 +698,19 @@ def train(args):
         clean_rows_samples = []
         max_height_samples = []
 
+        # NEW: Track Q-values throughout episode
+        episode_q_values = []
+
         while not done:
             # Select action
             action = agent.select_action(obs)
+
+            # NEW: Collect Q-values for logging (after action selection)
+            with torch.no_grad():
+                state_tensor = torch.FloatTensor(obs).unsqueeze(0).to(agent.device)
+                agent.q_network.eval()
+                q_values = agent.q_network(state_tensor).cpu().numpy()[0]
+                episode_q_values.append(q_values)
 
             # Step environment
             next_obs, reward, terminated, truncated, info = env.step(action)
@@ -846,6 +857,25 @@ def train(args):
 
         component_fields = {f"rc_{k}": v for k, v in episode_component_totals.items()}
 
+        # NEW: Calculate Q-value statistics for logging
+        q_value_fields = {}
+        if len(episode_q_values) > 0:
+            q_values_avg = np.mean(episode_q_values, axis=0)  # Average Q-value for each action
+            q_value_fields = {
+                'q_mean': float(np.mean(q_values_avg)),
+                'q_std': float(np.std(q_values_avg)),
+                'q_max': float(np.max(q_values_avg)),
+                'q_min': float(np.min(q_values_avg)),
+                'q_left': float(q_values_avg[0]),
+                'q_right': float(q_values_avg[1]),
+                'q_down': float(q_values_avg[2]),
+                'q_rotate_cw': float(q_values_avg[3]),
+                'q_rotate_ccw': float(q_values_avg[4]),
+                'q_hard_drop': float(q_values_avg[5]),
+                'q_swap': float(q_values_avg[6]),
+                'q_noop': float(q_values_avg[7]),
+            }
+
         # Log episode data
         logger.log_episode(
             episode=episode + 1,
@@ -875,7 +905,8 @@ def train(args):
             curriculum_gate_holes=gate_holes if gate_holes is not None else '',
             curriculum_gate_completable=gate_completable if gate_completable is not None else '',
             curriculum_gate_clean=gate_clean if gate_clean is not None else '',
-            **component_fields
+            **component_fields,
+            **q_value_fields
         )
 
         # Log board state periodically (SAME AS ORIGINAL)

@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Deep Q-Network (DQN) implementation for training AI agents to play Tetris using the Tetris Gymnasium environment. The project uses a **Hybrid Dual-Branch CNN architecture** with 8-channel observations (visual + explicit features) and progressive reward shaping to teach agents advanced Tetris strategies.
 
-**Current Status**: Hybrid DQN training in progress (expected 15-25x faster learning than visual-only)
+**Current Status**: Multiple hybrid DQN training runs completed (15K episodes). Results show improvement over visual-only baseline, though not the initially expected 10-50x speedup. Continued research and training ongoing.
 
 **Key Innovation**: Dual-branch architecture that separately processes visual channels (board, active piece, holder, queue) and feature channels (holes, heights, bumpiness, wells) before fusion.
+
+**Documentation**: Project documentation has been reorganized into `docs/` directory for better maintainability. See root `INDEX.md` for navigation guide.
 
 ## Common Commands
 
@@ -200,20 +202,34 @@ When editing training scripts (`train.py`, `train_progressive_improved.py`):
 ## Directory Structure
 
 ```
-tetris-rl/
+Tetris-Gym2/
 ├── README.md                           # Project overview and quick start
 ├── CLAUDE.md                           # This file - Claude Code guidance
-├── HYBRID_DQN_GUIDE.md                # Current implementation guide
-├── DQN_RESEARCH_ANALYSIS.md           # Research findings on DQN approaches
-├── IMPLEMENTATION_PLAN.md             # Feature channel implementation plan
-├── PROJECT_HISTORY.md                 # Complete project history and learnings
+├── INDEX.md                            # Documentation navigation guide
 ├── config.py                           # Environment config (8-channel wrapper)
-├── train_progressive_improved.py       # Main training script with hybrid support
+├── train_progressive_improved.py       # Main training script (CURRENT)
 ├── test_hybrid_model.py               # Test hybrid architecture
 ├── evaluate.py                         # Model evaluation
+├── monitor_training.py                 # Training progress monitor
 ├── visualize_features.py              # Visualize 8 channels
 ├── requirements.txt                    # Python dependencies
-├── src/
+│
+├── docs/                              # Organized documentation
+│   ├── architecture/
+│   │   └── hybrid-dqn.md              # Hybrid DQN implementation guide
+│   ├── guides/                        # (Future: training guides)
+│   ├── research/
+│   │   ├── dqn-research.md            # Research findings on DQN approaches
+│   │   ├── curriculum-analysis.md     # Curriculum effectiveness analysis
+│   │   └── decision-making.md         # How Q-values and decisions work
+│   └── history/
+│       ├── project-history.md         # Complete project history
+│       ├── implementation-plan.md     # Feature channel implementation plan
+│       └── training-results/
+│           ├── 13k-analysis.md        # 13K episode training analysis
+│           └── 15k-analysis.md        # 15K episode training analysis
+│
+├── src/                               # Core library code
 │   ├── agent.py                       # DQN agent with adaptive epsilon
 │   ├── model.py                       # Standard DQN and Dueling DQN
 │   ├── model_hybrid.py                # Hybrid Dual-Branch DQN (RECOMMENDED)
@@ -221,21 +237,24 @@ tetris-rl/
 │   ├── reward_shaping.py              # Core reward shaping functions
 │   ├── progressive_reward_improved.py # Progressive 5-stage curriculum
 │   └── utils.py                       # Logging, plotting utilities
-├── tests/
+│
+├── tests/                             # Test suite
 │   ├── test_feature_heatmaps.py       # Feature computation tests
 │   ├── test_feature_channels_training.py # Integration tests
 │   └── test_*.py                      # Other unit tests
-├── reports/
-│   ├── archive/                       # Historical documentation
-│   │   ├── CRITICAL_FIXES_APPLIED.md  # Dropout and train/eval mode fixes
-│   │   ├── HOLE_MEASUREMENT_FIX.md    # Metric tracking improvements
-│   │   ├── TRAINING_ANALYSIS_10K.md   # Visual-only baseline analysis
-│   │   ├── RECOMMENDATION.md          # Why dual-branch architecture
-│   │   └── ...                        # Other historical docs
-│   └── training_dqn_reward_review.md  # Old training analysis
-├── archive_scripts/                    # Old debug scripts
-├── models/                             # Saved model checkpoints
-└── logs/                              # Training logs and plots
+│
+├── reports/                           # Legacy reports directory
+│   └── archive/                       # Historical bug fixes and analysis
+│       ├── CRITICAL_FIXES_APPLIED.md  # Dropout and train/eval mode fixes
+│       └── HOLE_MEASUREMENT_FIX.md    # Metric tracking improvements
+│
+├── archive_scripts/                   # Deprecated/old scripts
+│   ├── train.py                       # Original training script (deprecated)
+│   ├── train_progressive.py           # Intermediate version (deprecated)
+│   └── debug_*.py                     # Old debug scripts
+│
+├── models/                            # Saved model checkpoints
+└── logs/                             # Training logs and plots
 ```
 
 ## Training Configuration
@@ -259,11 +278,19 @@ Tetris Gymnasium v0.3.0 action mapping (from `config.py`):
 
 ## Important Files to Check Before Modifying
 
-- `AGENTS.md` - Repository guidelines and conventions
-- `CRITICAL_FIXES_APPLIED.md` - Critical bug fixes (dropout, train/eval)
-- `HOLE_MEASUREMENT_FIX.md` - **CRITICAL**: How holes are measured (during play vs at game-over)
-- `14H_TRAINING_PLAN.md` - Long-term training strategy
-- `CENTER_STACKING_FIXES.md` - Solutions to column spreading problem
+**Core Documentation:**
+- `INDEX.md` - Documentation navigation guide (START HERE)
+- `docs/architecture/hybrid-dqn.md` - Current hybrid DQN implementation details
+- `docs/history/project-history.md` - Complete project evolution and learnings
+
+**Critical Technical References:**
+- `reports/archive/CRITICAL_FIXES_APPLIED.md` - **CRITICAL**: Dropout and train/eval mode fixes
+- `reports/archive/HOLE_MEASUREMENT_FIX.md` - **CRITICAL**: How holes are measured (during play vs at game-over)
+
+**Research & Analysis:**
+- `docs/research/dqn-research.md` - Why hybrid architecture was chosen
+- `docs/research/decision-making.md` - How Q-values and agent decisions work
+- `docs/history/training-results/` - Latest training run analyses
 
 ## Known Issues & Solutions
 
