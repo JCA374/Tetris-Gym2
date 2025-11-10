@@ -130,7 +130,7 @@ models/
 *.pickle
 
 # Training logs and outputs
-logs/
+# logs/  # Commented out - we want to track training logs
 runs/
 outputs/
 experiments/
@@ -148,7 +148,7 @@ evaluation_results/
 # Data files
 data/
 datasets/
-*.csv
+# *.csv  # Commented out - we want to track training logs CSV files
 *.json
 !config.json  # Keep config files
 !requirements.txt
